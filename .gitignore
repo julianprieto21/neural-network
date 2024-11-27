@@ -1,0 +1,51 @@
+# Archivos y carpetas de entornos virtuales
+venv/
+.env/
+*.pyc
+__pycache__/
+models/__pycache__/
+test/__pycache__/
+training/__pycache__/
+utils/__pycache__/
+
+# Configuración de IDEs
+.vscode/
+.idea/
+
+# Archivos de log y caché
+*.log
+*.cache
+*.pyo
+*.pyd
+*.pdb
+
+# Archivos de base de datos locales
+*.sqlite3
+
+# Archivos relacionados con pytest y coverage
+.cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Archivos de configuración de entornos
+.envrc
+*.env
+*.ini
+*.cfg
+
+# Archivos de Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Archivos generados por build
+build/
+dist/
+*.egg-info/
+
+# Archivos temporales del sistema operativo
+.DS_Store
+Thumbs.db
+
+# csv
+data/mnist_test.csv
+data/mnist_train.csv
