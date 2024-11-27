@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def accuracy(output: np.ndarray, target: np.ndarray, k: int=1) -> list[float]:
     """
     Calcula el accuracy top-k de acuerdo a la salida y la etiqueta
@@ -24,12 +25,12 @@ def accuracy(output: np.ndarray, target: np.ndarray, k: int=1) -> list[float]:
     correct = np.equal(topk_ind, target)
 
     res = []
-    for i in (range(1, k+1)):
-        correct_i = 0
-        correct_i = correct[:, :i].sum(0) # Suma las predicciones correctas de acuerdo al top-k
-        res.append(np.round(correct_i / batch_size, 3)) # Calcula el porcentaje de correctas de acuerdo al top-k
-    return res[-1][0] if len(res) == 1 else res[-1] # Devuelve la lista con el porcentaje de correctas de acuerdo al top-k
+    correct_i = correct[:, :k].sum(0) # Suma las predicciones correctas de acuerdo al top-k
+    res.append(np.round(correct_i / batch_size, 3)) # Calcula el porcentaje de correctas de acuerdo al top-k
+    return res[-1][0] if len(res[-1]) == 1 else res[-1] # Devuelve la lista con el porcentaje de correctas de acuerdo al top-k
 
-# output = np.array([[0.1, 0.9, 0.8], [0.05, 0.95, 0]])
-# target = np.array([[0, 0, 1], [1, 0, 0]])
-# print(accuracy(output, target))
+
+if __name__ == '__main__':
+    target = np.array([[0, 1, 0], [1, 0, 0]])
+    output = np.array([[0.1, 0.9, 0.8], [0.05, 0.95, 0]])
+    print(accuracy(output, target))
