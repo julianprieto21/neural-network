@@ -92,8 +92,8 @@ class Softmax(Activation):
         :param input: matriz de entrada
         :return: matriz de salida de la función de activación Softmax
         """
-        e_x = np.exp(input - np.max(input, axis=1, keepdims=True))
-        return e_x / e_x.sum(axis=1, keepdims=True)
+        e_x = np.exp(input - np.max(input, axis=0))
+        return e_x / np.sum(e_x, axis=0)
 
     def backward(self, grad_output: np.ndarray) -> np.ndarray:
         """
