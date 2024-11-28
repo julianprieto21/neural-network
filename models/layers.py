@@ -18,11 +18,11 @@ class Layer:
         self.input_shape = input_shape
         self.name = name
 
-    def forward(self, input: np.ndarray) -> np.ndarray:
+    def forward(self, data: np.ndarray) -> np.ndarray:
         """
         Realiza una propagación de la capa
 
-        :param input: matriz de entrada
+        :param data: matriz de entrada
         :return: matriz de salida de la capa
         """
         raise NotImplementedError
@@ -47,14 +47,14 @@ class Flatten(Layer):
         super().__init__(input_shape=input_shape, name=name)
         self.output_shape = (input_shape[0] * input_shape[1] * input_shape[2],) # Multiplicacion de dimensiones. H x W x C
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, data: np.ndarray) -> np.ndarray:
         """
         Realiza una propagación hacia adelante
 
-        :param x: tensor de entrada
+        :param data: tensor de entrada
         :return y: tensor de salida
         """
-        return x.reshape(self.output_shape)
+        return data.reshape(self.output_shape)
 
     def backward(self, grad_output: np.ndarray) -> np.ndarray:
         """
@@ -66,7 +66,7 @@ class Flatten(Layer):
         return grad_output.reshape(self.input_shape)
     
 class Dense(Layer):
-    def __init__(self, input_shape: tuple[int, ...], activation: Activation, neurons: int, name: str="dense"):
+    def __init__(self, input_shape: tuple[int, ...], neurons: int, activation: Activation=None, name: str="dense"):
         """
         Constructor de una capa de red neuronal densa
 
@@ -85,18 +85,18 @@ class Dense(Layer):
         self.weights = initialize_parameters(shape=(self.input_shape[0], self.neurons))
         self.bias = initialize_parameters(shape=(self.neurons, ))
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, data: np.ndarray) -> np.ndarray:
         """
         Realiza una propagación hacia adelante
 
         :param x: tensor de entrada
         :return y: tensor de salida
         """
-        z = x.dot(self.weights) + self.bias
-        y = self.activation.forward(z)
+        z = data.dot(self.weights) + self.bias
+        y = self.activation.forward(z) if self.activation is not None else z
         return y
     
-    def backward(self, grads: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def backward(self, grads: np.ndarray, data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Realiza una propagación hacia atrás
 
@@ -106,16 +106,42 @@ class Dense(Layer):
         """
 
         #TODO: Gradientes de la propagación hacia atras de la capa densa
-        z = self.activation.backward(grads)
+        z = self.activation.backward(z) if self.activation is not None else z
         grads = z.dot(self.weights.T)
         grads = grads.reshape(self.input_shape)
-        w_grads = grads.dot(x.T)
+        w_grads = grads.dot(data.T)
         b_grads = grads.sum(axis=0)
         return grads, w_grads, b_grads
 
 class Dropout(Layer):
-    def __init__():
-        pass
+    def __init__(self, rate: float=0.5):
+        """
+        Constructor de una capa de dropout
+
+        :param rate: tasa de dropout
+        """
+        self.rate = rate
+
+    def forward(self, data: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante
+
+        :param data: tensor de entrada
+        :return y: tensor de salida
+        """
+        mask = np.random.rand(*data.shape) < self.rate
+        y = data * mask
+        return y
+
+    def backward(self, grad_output: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás
+
+        :param grad_output: gradientes de la propagación hacia adelante
+        :return grad_output: gradientes de la propagación hacia atrás
+        """
+        #TODO: Hacer gradiente de la propagación hacia atras
+        return grad_output
 
 class MaxPooling(Layer):
     def __init__(self, input_shape: tuple[int, ...], pool_size: int, stride: int=None, padding: str='valid'):
@@ -124,8 +150,8 @@ class MaxPooling(Layer):
         
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
         :param pool_size: tamaño del pooling
-        :param stride: paso de la convolución
-        :param padding: padding de la convolución
+        :param stride: paso de la convolución. Por defecto None
+        :param padding: padding de la convolución. Por defecto 'valid'
         """
         super().__init__(input_shape=input_shape, name='max_pooling')
         self.pool_size = pool_size
@@ -137,6 +163,29 @@ class MaxPooling(Layer):
             _ = ((self.input_shape[1] - self.pool_size) // self.pool_size) + 1
         self.output_shape = (self.input_shape[0], _, _)
 
+    def forward(self, data: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante
+
+        :param x: tensor de entrada
+        :return y: tensor de salida
+        """
+        grad = np.zeros(self.output_shape)
+        for x in range(0, self.input_shape[1] - 1, self.pool_size):
+            for y in range(0, self.input_shape[2] - 1, self.pool_size):
+                grad[:, x // self.pool_size, y // self.pool_size] = np.amax(data[:, x:x+self.pool_size, y:y+self.pool_size], axis=(1, 2))
+        return grad
+
+    def backward(self, grad_output: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás
+
+        :param grad_output: gradientes de la propagación hacia adelante
+        :return grad_output: gradientes de la propagación hacia atrás
+        """
+        #TODO: Hacer gradiente de la propagación hacia atras
+        return grad_output
+
 class Conv2D(Layer):
     def __init__(self, input_shape: tuple[int, ...], activation: Activation, filters: int, filter_size: int, stride: int=1, padding: str='valid'):
         """
@@ -146,8 +195,8 @@ class Conv2D(Layer):
         :param activation: función de activación. Por defecto es ReLU
         :param filters: cantidad de filtros/neuronas en la capa
         :param filter_size: tamaño del filtro
-        :param stride: paso de la convolución
-        :param padding: padding de la convolución
+        :param stride: paso de la convolución. Por defecto 1
+        :param padding: padding de la convolución. Por defecto 'valid'
         """
         super().__init__(input_shape=input_shape, name='conv2d')
         self.activation = activation
@@ -160,7 +209,7 @@ class Conv2D(Layer):
         self.weights = initialize_parameters(shape=(self.filter_size, self.filter_size, self.input_shape[0], self.filters))
         self.bias = initialize_parameters(shape=(self.filters, ))
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, data: np.ndarray) -> np.ndarray:
         """
         Realiza una propagación hacia adelante
 
@@ -168,15 +217,15 @@ class Conv2D(Layer):
         :return y: tensor de salida
         """
         channels, width, height = self.weights.shape
-        input_input, input_channels, input_width, height = x.shape
+        input_input, input_channels, input_width, height = data.shape
 
         #TODO: Revisar que los cálculos y dimensiones sean correctos
         z = np.zeros(self.output_shape)
         for x in range(self.output_shape[1]):
             for y in range(self.output_shape[2]):
                 for c in range(channels):
-                    z[c, x, y] = np.sum(x[c, x:x+self.filter_size, y:y+self.filter_size] * self.weights[c, x, y, :] + self.bias[c])
-        y = self.activation.forward(z)
+                    z[c, x, y] = np.sum(data[c, x:x+self.filter_size, y:y+self.filter_size] * self.weights[c, x, y, :] + self.bias[c])
+        y = self.activation.forward(z) if self.activation is not None else z
         return y
     
     def backward(self, grad_output: np.ndarray) -> np.ndarray:
@@ -188,6 +237,7 @@ class Conv2D(Layer):
         """
         input_width, input_height, channels = self.weights.shape
 
-        #TODO:
+        #TODO: Hacer gradiente de la propagación hacia atras
+        return grad_output
         
         
