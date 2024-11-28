@@ -7,7 +7,7 @@ class ConvolutionalNetwork:
         """
         Constructor de un modelo de red neuronal convolucional
 
-        :param input_shape: tupla con las dimensiones de entrada (width, height, channels)
+        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
         :param num_classes: cantidad de clases
         :param layers: capas de la red
         :param optimizer: método de optimización
