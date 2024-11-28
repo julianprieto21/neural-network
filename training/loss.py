@@ -11,7 +11,7 @@ def cross_entropy(output: np.ndarray, target: np.ndarray, reduction: str='mean')
     elif reduction == 'none':
         pass
     else:
-        raise ValueError(f'Reduction {reduction} not supported')
+        raise ValueError(f'Reduccion {reduction} no soportada')
     return np.round(loss, 3)
 
 def categorical_cross_entropy(output: np.ndarray, target: np.ndarray, reduction: str='mean') -> float:
@@ -33,7 +33,7 @@ def categorical_cross_entropy(output: np.ndarray, target: np.ndarray, reduction:
     elif reduction == 'none':
         pass
     else:
-        raise ValueError(f'Reduction {reduction} not supported')
+        raise ValueError(f'Reduccion {reduction} no soportada')
     return np.round(loss, 3)
 
 def mean_squared_error(output: np.ndarray, target: np.ndarray, reduction: str='mean') -> float:
@@ -53,7 +53,7 @@ def mean_squared_error(output: np.ndarray, target: np.ndarray, reduction: str='m
     elif reduction == 'none':
         pass
     else:
-        raise ValueError(f'Reduction {reduction} not supported')
+        raise ValueError(f'Reduccion {reduction} no soportada')
     return np.round(loss, 3)
 
 def categorical_mean_squared_error(output: np.ndarray, target: np.ndarray, reduction: str='mean') -> float:
@@ -76,7 +76,7 @@ def categorical_mean_squared_error(output: np.ndarray, target: np.ndarray, reduc
     elif reduction == 'none':
         pass
     else:
-        raise ValueError(f'Reduction {reduction} not supported')
+        raise ValueError(f'Reduccion {reduction} no soportada')
     return np.round(loss, 3)
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def initialize_parameters(shape: tuple[int, ...], name: str, distribution: str='normal') -> np.ndarray:
+def initialize_parameters(shape: tuple[int, ...], distribution: str='normal') -> np.ndarray:
     """
     Inicializa los parametros de una matriz con una distribución normal
 
