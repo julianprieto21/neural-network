@@ -76,7 +76,6 @@ class NeuralNetwork:
         """
         for layer in self.layers:
             data = layer.forward(data)
-            print(layer.name, data.shape)
         return data
     
     def _backward(self, grad_output: np.ndarray) -> np.ndarray:
@@ -86,10 +85,11 @@ class NeuralNetwork:
         :param grad_output: gradientes de la propagación hacia adelante
         :return grad_output: gradientes de la propagación hacia atrás
         """        
-        raise NotImplementedError
-        # for layer in reversed(self.layers):
-        #     grad_output = layer.backward(grad_output)
-        # return grad_output
+        for layer in reversed(self.layers):
+            if layer.name == "dense":
+                grad_output = layer.backward(grad_output, )
+            grad_output = layer.backward(grad_output)
+        return grad_output
 
     def train(self, train_data: np.ndarray, train_labels: np.ndarray, epochs: int=10, batch_size: int=32) -> None:
         """
@@ -104,9 +104,11 @@ class NeuralNetwork:
             for batch in range(0, train_data.shape[0], batch_size):
                 batch_data = train_data[batch:batch+batch_size]
                 batch_labels = train_labels[batch:batch+batch_size]
+                
                 preds = self._forward(batch_data)
-                loss = self.loss(preds, batch_labels)
-                grads = self._backward(loss)
+                first_grads = preds - batch_labels
+                grads = self._backward(first_grads)
+
                 params = self.get_params()
                 params = self.optimizer(params, grads)
 

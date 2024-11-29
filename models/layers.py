@@ -109,28 +109,29 @@ class Dense(Layer):
         Realiza una propagación hacia adelante
 
         :param x: tensor de entrada
-        :return y: tensor de salida
+        :return output: tensor de salida
         """
         z = data.dot(self.weights) + self.bias
-        y = self.activation.forward(z) if self.activation is not None else z
-        return y
+        output = self.activation.forward(z) if self.activation is not None else z
+        if self.output_shape != output.shape:
+            raise ValueError(f'La salida de la capa {self.name} no coincide con la esperada. Esperada: {self.output_shape}, obtenida: {output.shape}')
+        return output
     
-    def backward(self, grads: np.ndarray, data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def backward(self, grad_output: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Realiza una propagación hacia atrás
 
-        :param grads: gradientes de la propagación hacia adelante
+        :param grad_output: gradientes de la propagación hacia adelante
         :param x: tensor de entrada
         :return grads: gradientes de la propagación hacia atrás (entrada, pesos, bias)
         """
 
         #TODO: Gradientes de la propagación hacia atras de la capa densa
-        z = self.activation.backward(z) if self.activation is not None else z
-        grads = z.dot(self.weights.T)
-        grads = grads.reshape(self.input_shape)
-        w_grads = grads.dot(data.T)
-        b_grads = grads.sum(axis=0)
-        return grads, w_grads, b_grads
+        grad_output = self.activation.backward(grad_output) if self.activation is not None else grad_output
+        w_grads = x.T.dot(grad_output)
+        b_grads = grad_output.sum(axis=0)
+        x_grads = grad_output.dot(self.weights.T).reshape(self.input_shape)
+        return x_grads, w_grads, b_grads
 
 class Dropout(Layer):
     def __init__(self, rate: float=0.5):
@@ -175,30 +176,33 @@ class MaxPool2D(Layer):
         super().__init__(input_shape=input_shape, name='max_pooling')
         self.pool_size = pool_size
         self.stride = self.pool_size if stride is None else stride
-        self.padding = 0 if padding == 'valid' else 1
-        
+        self.padding = padding
+
     def compile(self) -> None:
         """
         Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
         """
-        if self.stride:
-            _ = ((self.input_shape[1] - 1) // self.stride) + 1
+        if self.padding == 'same':
+            _ = math.floor((self.input_shape[1] - 1) / self.stride) + 1
+            self.output_shape = (self.input_shape[0], _, _)
         else:
-            _ = ((self.input_shape[1] - self.pool_size) // self.pool_size) + 1
-        self.output_shape = (self.input_shape[0], _, _)
+            _ = math.floor((self.input_shape[1] - self.pool_size) / self.stride) + 1
+            self.output_shape = (self.input_shape[0], _, _)
 
     def forward(self, data: np.ndarray) -> np.ndarray:
         """
         Realiza una propagación hacia adelante
 
         :param x: tensor de entrada
-        :return y: tensor de salida
+        :return output: tensor de salida
         """
-        grad = np.zeros(self.output_shape)
-        for x in range(0, self.input_shape[1] - 1, self.pool_size):
-            for y in range(0, self.input_shape[2] - 1, self.pool_size):
-                grad[:, x // self.pool_size, y // self.pool_size] = np.amax(data[:, x:x+self.pool_size, y:y+self.pool_size], axis=(1, 2))
-        return grad
+        output = np.zeros(self.output_shape)
+        for x in range(0, self.input_shape[1] - self.pool_size, self.pool_size):
+            for y in range(0, self.input_shape[2] - self.pool_size, self.pool_size):
+                output[:, x // self.pool_size, y // self.pool_size] = np.amax(data[:, x:x+self.pool_size, y:y+self.pool_size], axis=(1, 2))
+        if self.output_shape != output.shape:
+            raise ValueError(f'La salida de la capa {self.name} no coincide con la esperada. Esperada: {self.output_shape}, obtenida: {output.shape}')
+        return output
 
     def backward(self, grad_output: np.ndarray) -> np.ndarray:
         """
@@ -243,7 +247,7 @@ class Conv2D(Layer):
         Realiza una propagación hacia adelante
 
         :param x: tensor de entrada
-        :return y: tensor de salida
+        :return output: tensor de salida
         """
         channels, _, width, height = self.weights.shape
         input_channels, input_width, height = data.shape
@@ -254,8 +258,10 @@ class Conv2D(Layer):
             for y in range(self.output_shape[2]):
                 for c in range(channels):
                     z[c, x, y] = np.sum(data[:, x:x+self.filter_size, y:y+self.filter_size] * self.weights[c, :, :] + self.bias[c])
-        y = self.activation.forward(z) if self.activation is not None else z
-        return y
+        output = self.activation.forward(z) if self.activation is not None else z
+        if self.output_shape != output.shape:
+            raise ValueError(f'La salida de la capa {self.name} no coincide con la esperada. Esperada: {self.output_shape}, obtenida: {output.shape}')
+        return output
     
     def backward(self, grad_output: np.ndarray) -> np.ndarray:
         """
