@@ -12,7 +12,7 @@ def cross_entropy(output: np.ndarray, target: np.ndarray, reduction: str='mean')
         pass
     else:
         raise ValueError(f'Reduccion {reduction} no soportada')
-    return np.round(loss, 3)
+    return loss
 
 def categorical_cross_entropy(output: np.ndarray, target: np.ndarray, reduction: str='mean') -> float:
     """
@@ -34,11 +34,11 @@ def categorical_cross_entropy(output: np.ndarray, target: np.ndarray, reduction:
         pass
     else:
         raise ValueError(f'Reduccion {reduction} no soportada')
-    return np.round(loss, 3)
+    return loss
 
 if __name__ == '__main__':
-    y_true = np.array([[0, 1, 0], [0, 0, 1]])
-    y_pred = np.array([[0.05, 0.95, 0], [0.1, 0.8, 0.1]])
+    y_true = np.array([0, 1, 0])
+    y_pred = np.array([0.05, 0.95, 0])
 
     loss = cross_entropy(y_pred, y_true)
     print(loss)

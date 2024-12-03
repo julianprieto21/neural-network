@@ -10,6 +10,7 @@ def accuracy(output: np.ndarray, target: np.ndarray, k: int=1) -> list[float]:
     :param topk: top-k que se quiere calcular. Por defecto es el top-1 (accuracy estandar)
     :return accuracy: lista con el accuracy top-k
     """
+
     if output.shape[1] != target.shape[1]:
         raise ValueError('Output and target must have the same number of columns')
     elif k > output.shape[1]:
@@ -26,7 +27,7 @@ def accuracy(output: np.ndarray, target: np.ndarray, k: int=1) -> list[float]:
 
     res = []
     correct_i = correct[:, :k].sum(0) # Suma las predicciones correctas de acuerdo al top-k
-    res.append(np.round(correct_i / batch_size, 3)) # Calcula el porcentaje de correctas de acuerdo al top-k
+    res.append(correct_i / batch_size) # Calcula el porcentaje de correctas de acuerdo al top-k
     return res[-1][0] if len(res[-1]) == 1 else res[-1] # Devuelve la lista con el porcentaje de correctas de acuerdo al top-k
 
 
