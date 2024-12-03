@@ -1,4 +1,5 @@
 import numpy as np
+from utils.helpers import one_hot_encoder
 
 def load_dataset(dataset_name):
     train_data = np.genfromtxt(dataset_name + '_train.csv', delimiter=',', skip_header=1)
@@ -32,9 +33,13 @@ def preprocess_dataset(train_data, test_data, val_size=0.2):
     x_val = x_val.reshape(x_val.shape[0], -1, 28, 28)
     x_test = x_test.reshape(x_test.shape[0], -1, 28, 28)
 
-    y_train = y_train.reshape(-1, 1)
-    y_val = y_val.reshape(-1, 1)
-    y_test = y_test.reshape(-1, 1)
+    y_train = y_train.reshape(-1, 1).astype(int).flatten()
+    y_val = y_val.reshape(-1, 1).astype(int).flatten()
+    y_test = y_test.reshape(-1, 1).astype(int).flatten()
+
+    y_train = one_hot_encoder(y_train)
+    y_val = one_hot_encoder(y_val)
+    y_test = one_hot_encoder(y_test)
 
     print(
     f"""
@@ -48,5 +53,5 @@ def preprocess_dataset(train_data, test_data, val_size=0.2):
     """
     )
 
-    return [x_train, y_train], [x_val, y_val], [x_test, y_test]
+    return x_train, y_train, x_val, y_val, x_test, y_test
 
