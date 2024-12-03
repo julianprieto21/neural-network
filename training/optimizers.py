@@ -53,7 +53,8 @@ class SGD(Optimizer):
         updated_params = []
         for param, grad in zip(params, grads):
             if self.momentum is not None:
-                updated_params.append(param - self.learning_rate * grad - self.momentum * param)
+                param -= self.learning_rate * grad - self.momentum * param
             else:
-                updated_params.append(param - self.learning_rate * grad)
+                param -= self.learning_rate * grad
+            updated_params.append(param)
         return updated_params
