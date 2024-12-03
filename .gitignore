@@ -33,6 +33,7 @@ htmlcov/
 *.env
 *.ini
 *.cfg
+*.ipynb
 
 # Archivos de Jupyter Notebook checkpoints
 .ipynb_checkpoints/
@@ -49,3 +50,4 @@ Thumbs.db
 # csv
 data/mnist_test.csv
 data/mnist_train.csv
+
