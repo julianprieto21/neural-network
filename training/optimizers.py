@@ -17,6 +17,7 @@ class Optimizer:
         self.beta2 = beta2
         self.epsilon = epsilon
         self.updated_params = []
+        self.velocity = None
 
     def __call__(self, params: list[np.ndarray], grads: list[np.ndarray]) -> list[np.ndarray]:
         """
@@ -40,7 +41,6 @@ class SGD(Optimizer):
         :param epsilon: valor del epsilon. Por defecto 1e-8
         """
         super().__init__(learning_rate, momentum)
-        pass
 
     def __call__(self, params: list[np.ndarray], grads: list[np.ndarray]) -> list[np.ndarray]:
         """
@@ -51,10 +51,14 @@ class SGD(Optimizer):
         :return updated_params: lista de parámetros actualizados
         """
         updated_params = []
-        for param, grad in zip(params, grads):
-            if self.momentum is not None:
-                param -= self.learning_rate * grad - self.momentum * param
-            else:
-                param -= self.learning_rate * grad
+        # if self.velocity is None and self.momentum is not None:
+        #     self.velocity = [np.zeros_like(param) for param in params]
+        for i, (param, grad) in enumerate(zip(params, grads)):
+            # if self.momentum is not None:
+            #     self.velocity[i] = self.momentum * self.velocity[i] - self.learning_rate * grad
+            #     param += self.velocity[i]
+            # else:
+            param -= self.learning_rate * grad
+            param = np.where(abs(param) < 1e-07, 0, param)
             updated_params.append(param)
         return updated_params
