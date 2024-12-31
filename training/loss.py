@@ -1,6 +1,6 @@
 import numpy as np
 
-def cross_entropy(output: np.ndarray, target: np.ndarray, reduction: str='mean') -> float: 
+def cross_entropy(target: np.ndarray, output: np.ndarray, reduction: str='mean') -> float: 
     epsilon = 1e-10
     output = np.clip(output, epsilon, 1 - epsilon)
     loss = -np.sum(target * np.log(output) + (1-target) * np.log(1-output), axis=1)
@@ -14,7 +14,7 @@ def cross_entropy(output: np.ndarray, target: np.ndarray, reduction: str='mean')
         raise ValueError(f'Reduccion {reduction} no soportada')
     return loss
 
-def categorical_cross_entropy(output: np.ndarray, target: np.ndarray, reduction: str='mean') -> float:
+def categorical_cross_entropy(target: np.ndarray, output: np.ndarray, reduction: str='mean', axis: int=-1) -> float:
     """
     Calcula el loss de la red utilizando el método de cross entropy
 
@@ -24,8 +24,9 @@ def categorical_cross_entropy(output: np.ndarray, target: np.ndarray, reduction:
     :return loss: loss (pérdida) de la red
     """
     epsilon = 1e-10
-    output = np.clip(output, epsilon, 1 - epsilon)
-    loss = -np.sum(target * np.log(output), axis=1)
+    output = output / np.sum(output, axis, keepdims=True)
+    output = np.clip(output, epsilon, 1.0 - epsilon)
+    loss = -np.sum(target * np.log(output), axis=axis)
     if reduction == 'mean':
         loss = loss.mean()
     elif reduction == 'sum':
@@ -35,11 +36,3 @@ def categorical_cross_entropy(output: np.ndarray, target: np.ndarray, reduction:
     else:
         raise ValueError(f'Reduccion {reduction} no soportada')
     return loss
-
-if __name__ == '__main__':
-    y_true = np.array([0, 1, 0])
-    y_pred = np.array([0.05, 0.95, 0])
-
-    loss = cross_entropy(y_pred, y_true)
-    print(loss)
-    pass
