@@ -156,11 +156,13 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         :param batch_size: tamaño de la batch
         """
 
+        global_loss = []
+        global_metric = []
+        self.log("Entreando el modelo...")
         for epoch in range(epochs):
-            loss_history = []
-            metric_history = []
-            self.log(f'Epoch {epoch + 1}/{epochs}')
             for batch in range(0, train_data.shape[0], batch_size):
+                loss_history = []
+                metric_history = []
                 x_batch = train_data[batch:batch+batch_size]
                 y_batch = train_labels[batch:batch+batch_size]
 
@@ -168,23 +170,21 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
                 loss_history.append(loss)
                 metric_history.append(metric)
 
-                param_grads = [np.zeros_like(param) for param in self.params]
-                for i in range(x_batch.shape[0]):
-                    grads = self._backward(x_batch[i, :, :], y_batch[i])
-                    for j, grad in enumerate(grads):
-                        param_grads[j] += grad
-
+                grads = self._backward(x_batch, y_batch)
                 param_grads = [
                     np.where(abs(grad / x_batch.shape[0]) < 1e-07, 0, grad / x_batch.shape[0]) 
-                    for grad in param_grads
+                    for grad in grads
                 ]
                 self._update_params(param_grads)
                 
-                self.log(f'| Batch {batch//batch_size + 1}/{train_data.shape[0]//batch_size} - Loss: {np.mean(loss_history):.4f} - Metric: {np.mean(metric_history)}')
-
+            self.log(f'Epoch {epoch + 1}/{epochs} - Loss: {np.mean(loss_history):.4f} - Metric: {np.mean(metric_history)}')
+            global_loss.append(np.mean(loss_history))
+            global_metric.append(np.mean(metric_history))
             if validation_data is not None:
                 loss, metric = self.evaluate(validation_data, validation_labels)
                 self.log(f'Validation - Loss: {loss:.4f} - Metric: {metric}')
+        
+        return global_loss, global_metric
 
     def predict(self, test_data: np.ndarray, probs: bool=True) -> np.ndarray:
         """
@@ -205,14 +205,9 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         :param test_labels: matriz de etiquetas de prueba
         :return: valor de la pérdida y la métrica 
         """
-
-        loss = 0
-        metric = 0
-        for i in range(test_data.shape[0]):
-            pred = self.predict(test_data[i, :, :], probs=True)
-            true = np.array([test_labels[i]])
-            loss += self.loss(true, pred)
-            metric += self.metrics(true, pred)
+        pred = self.predict(test_data, probs=True)
+        loss = self.loss(test_labels, pred)
+        metric = self.metrics(test_labels, pred)
 
         loss /= test_data.shape[0]
         metric /= test_data.shape[0]
