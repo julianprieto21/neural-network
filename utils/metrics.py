@@ -10,6 +10,8 @@ def accuracy(target: np.ndarray, output: np.ndarray, k: int=1) -> list[float]:
     :param topk: top-k que se quiere calcular. Por defecto es el top-1 (accuracy estandar)
     :return accuracy: lista con el accuracy top-k
     """
+    output = np.array(output)
+    target = np.array(target)
     if output.shape[1] != target.shape[1]:
         raise ValueError('Output and target must have the same number of columns')
     elif k > output.shape[1]:
