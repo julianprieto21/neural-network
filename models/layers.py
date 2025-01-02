@@ -223,16 +223,25 @@ class MaxPool2D(Layer):
         stride_h, stride_w = self.stride, self.stride # Paso del pooling
         _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
 
-        for h in range(output_height):
-            for w in range(output_width):
-                h_start, w_start = h * stride_h, w * stride_w # Posiciones iniciales
-                h_end, w_end = h_start + pool_h, w_start + pool_w # Posiciones finales
+        for b in range(x.shape[0]):
+            for h in range(output_height):
+                for w in range(output_width):
+                    h_start, w_start = h * stride_h, w * stride_w # Posiciones iniciales
+                    h_end, w_end = h_start + pool_h, w_start + pool_w # Posiciones finales
 
-                patch = x[:, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
-                mask = (patch == np.max(patch, axis=(2, 3), keepdims=True)) # Máscara de los valores máximos
-                grad = x_grad[:, :, h, w][:, :, np.newaxis, np.newaxis] # Gradiente de la salida
-                data_grads[:, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
+                    patch = x[b, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
+                    max_val = np.max(patch, axis=(1, 2), keepdims=True) # Máscara de los valores máximos
+                    mask = (patch == max_val) # Máscara de los valores máximos
 
+                    for c in range(mask.shape[0]):  # Iterar por canal
+                        flat_mask = mask[c].reshape(-1)  # Aplanar para simplificar
+                        true_indices = np.flatnonzero(flat_mask)  # Índices donde mask es True
+                        if len(true_indices) > 1:
+                            flat_mask[true_indices[1:]] = False  # Dejar solo el primer True
+                        mask[c] = flat_mask.reshape(mask[c].shape)  # Restaurar forma original
+
+                    grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
+                    data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
         return data_grads
 
 class Conv2D(Layer):
