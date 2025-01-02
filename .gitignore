@@ -33,7 +33,6 @@ htmlcov/
 *.env
 *.ini
 *.cfg
-*.ipynb
 
 # Archivos de Jupyter Notebook checkpoints
 .ipynb_checkpoints/
