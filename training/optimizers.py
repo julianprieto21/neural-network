@@ -1,7 +1,7 @@
 import numpy as np
 
 class Optimizer:
-    def __init__(self, learning_rate: float=0.001, momentum: float=None, beta1: float=0.9, beta2: float=0.999, epsilon: float=1e-8) -> None:
+    def __init__(self, learning_rate: float=0.01, momentum: float=None, beta1: float=0.9, beta2: float=0.999, epsilon: float=1e-8) -> None:
         """
         Constructor de un optimizador
 
@@ -30,7 +30,7 @@ class Optimizer:
         raise NotImplementedError
 
 class SGD(Optimizer):
-    def __init__(self, learning_rate: float=0.001, momentum: float=None) -> None:
+    def __init__(self, learning_rate: float=0.01, momentum: float=None) -> None:
         """
         Constructor de un optimizador SGD
 
