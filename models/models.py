@@ -1,9 +1,10 @@
 import numpy as np
 from training.optimizers import Optimizer
 from .layers import Layer
+from training.losses import Loss
 
 class NeuralNetwork:
-    def __init__(self, layers: list[Layer], optimizer: Optimizer, loss: any, metrics: any, verbose: bool=True) -> None:
+    def __init__(self, layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: any, verbose: bool=True) -> None:
         """
         Constructor de un modelo de red neuronal
 
@@ -37,7 +38,7 @@ class NeuralNetwork:
         if self.verbose:
             print(text)
 class ConvolutionalNeuralNetwork(NeuralNetwork):
-    def __init__(self, layers: list[Layer], optimizer: Optimizer, loss: any, metrics: any, verbose: bool=True) -> None:
+    def __init__(self, layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: any, verbose: bool=True) -> None:
         """
         Constructor de un modelo de red neuronal
 
@@ -64,7 +65,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
             else:
                 print(f'- {layer.name}: {layer.__class__.__name__} - {layer.output_shape}')
         print(f'Optimizador: {self.optimizer.__class__.__name__} - Learning rate: {self.optimizer.learning_rate}')
-        print(f'Función de pérdida: {self.loss.__name__}')        
+        print(f'Función de pérdida: {self.loss.__class__.__name__}')        
         print(f'Función de cálculo de métricas: {self.metrics.__name__}')
         print(f'Cantidad de parámetros: {parameters}')
 
@@ -126,7 +127,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """      
 
         preds = self(x)
-        grad_output = preds - y 
+        grad_output = self.loss.backward(y, preds)
         for layer in reversed(self.layers):
             grad_output = layer.backward(grad_output)
         self.data_grads = grad_output
@@ -211,4 +212,4 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
 
         loss /= test_data.shape[0]
         metric /= test_data.shape[0]
-        return round(loss, 3), round(metric, 3)
+        return loss, metric
