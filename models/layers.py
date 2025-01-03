@@ -176,6 +176,7 @@ class MaxPool2D(Layer):
         :param x: tensor de entrada
         :return output: tensor de salida
         """
+        self.forward_data = x
         _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
         batch_size, channels, _, _ = x.shape # (batches, channels, height, width)
 
