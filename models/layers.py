@@ -110,7 +110,7 @@ class Dense(Layer):
         self.output_shape = (None, self.neurons)
         if self.weights is None:
             self.weights = initialize_parameters(shape=(input_shape[1], self.neurons), distribution='normal')
-        if self.bias is None:    
+        if self.bias is None:
             self.bias = initialize_parameters(shape=(self.neurons), distribution='zeros')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
@@ -153,19 +153,27 @@ class MaxPool2D(Layer):
         """
         self.pool_size = pool_size
         self.stride = self.pool_size if stride is None else stride
-        self.padding = 0 if padding == 'valid' else math.ceil((self.pool_size - 1) / 2)
+        self.padding = padding
         super().__init__(input_shape=input_shape, name=name)
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
         Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
         """
-        if self.padding == 0: # Calcular las dimensiones de la salida sin padding
+        if self.padding == 'valid': 
+            self.padding = 0
+
             out_height = (input_shape[2] - self.pool_size) // self.stride + 1
             out_width = (input_shape[3] - self.pool_size) // self.stride + 1
-        else: # Calcular las dimensiones de la salida con padding
-            out_height = input_shape[2] // self.padding
-            out_width = input_shape[3] // self.padding
+        elif self.padding == 'same':
+            output_size = math.ceil(input_shape[2] / self.stride)
+            padd_total = max(0, (output_size - 1) * self.stride + self.pool_size - input_shape[2])
+            self.padding = math.ceil(padd_total // 2)
+
+            out_height = (input_shape[2] + 2 * self.padding - self.pool_size) // self.stride + 1
+            out_width = (input_shape[3] + 2 * self.padding - self.pool_size) // self.stride + 1
+        else:
+            raise ValueError(f'Padding {self.padding} no soportado. Utilice "valid" o "same"')
 
         self.output_shape = (None, input_shape[1], out_height, out_width)
 
@@ -180,7 +188,10 @@ class MaxPool2D(Layer):
         self.forward_data = x
         _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
         batch_size, channels, _, _ = x.shape # (batches, channels, height, width)
-
+        
+        if self.padding:
+            x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
+        
         # TODO: Entender implementación y funcionamiento de función.
         strided_x = np.lib.stride_tricks.as_strided(
             x,
@@ -258,25 +269,33 @@ class Conv2D(Layer):
         self.filters = filters
         self.filter_size = filter_size
         self.stride = stride
-        self.padding = 0 if padding == 'valid' else math.ceil((self.filter_size - 1) / 2)
+        self.padding = padding
         super().__init__(input_shape=input_shape, name=name, weights=weights, bias=bias)
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
         Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
         """
-        if self.padding == 0:
+        if self.padding == 'valid': 
+            self.padding = 0
+
             out_height = (input_shape[2] - self.filter_size) // self.stride + 1
             out_width = (input_shape[3] - self.filter_size) // self.stride + 1
+        elif self.padding == 'same':
+            output_size = math.ceil(input_shape[2] / self.stride)
+            padd_total = max(0, (output_size - 1) * self.stride + self.filter_size - input_shape[2])
+            self.padding = math.ceil(padd_total // 2)
+
+            out_height = (input_shape[2] + 2 * self.padding - self.filter_size) // self.stride + 1
+            out_width = (input_shape[3] + 2 * self.padding - self.filter_size) // self.stride + 1
         else:
-            out_height = input_shape[2] // self.padding
-            out_width = input_shape[3] // self.padding
+            raise ValueError(f'Padding {self.padding} no soportado. Utilice "valid" o "same"')
 
         self.output_shape = (None, self.filters, out_height, out_width) 
 
         if self.weights is None:
             self.weights = initialize_parameters(shape=(self.filter_size, self.filter_size, input_shape[1], self.filters), distribution='normal')
-        if self.bias is None:    
+        if self.bias is None:
             self.bias = initialize_parameters(shape=(self.filters), distribution='zeros')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
@@ -291,12 +310,14 @@ class Conv2D(Layer):
         batch_size = x.shape[0] # (batch_size, channels, height, width)
         _, _, output_height, output_width = self.output_shape # (batch_size, filters, output_height, output_width)
         
+        if self.padding:
+            x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)) , mode='constant') # Añadir padding a la entrada
+        
         z = np.zeros((batch_size, self.filters, output_height, output_width)) # (batch_size, channels, height, width)
         for h in range(output_height):
             for w in range(output_width):
                 h_start, w_start = h * self.stride, w * self.stride # Ajustar las posiciones iniciales segun el stride. Por defecto stride = 1.
                 h_end, w_end = h_start + self.filter_size, w_start + self.filter_size # Ajusta las posiciones finales sumandoles el tamaño del filtro.
-
                 x_region = x[:, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
                 z[:, :, h, w] = np.tensordot(x_region, self.weights, axes=([1, 2, 3], [2, 0, 1])) + self.bias # Realizar la convolución
 
@@ -311,10 +332,14 @@ class Conv2D(Layer):
         :return: gradientes de la propagación hacia atrás
         """
         batch_size, _, output_height, output_width = x_grad.shape # (batch_size, filters, output_height, output_width)
-
+        _, _, input_height, input_width = self.forward_data.shape
         x_grad = self.activation.backward(x_grad) if self.activation else x_grad
-
-        data_grads = np.zeros_like(self.forward_data) # Gradientes con respecto a la entrada (batch_size, channels, height, width)
+        x = self.forward_data
+        
+        if self.padding: 
+            x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant') # Añadir padding a la entrada
+        
+        data_grads = np.zeros_like(x) # Gradientes con respecto a la entrada (batch_size, channels, height, width)
         weigth_grads = np.zeros_like(self.weights)  # Gradientes con respecto a los pesos (filter_size, filter_size, channels, filters)
         bias_grads = np.sum(x_grad, axis=(0, 2, 3))  # Gradiente del sesgo. Se calcula directamente dada su simplicidad. (filters)
 
@@ -323,14 +348,17 @@ class Conv2D(Layer):
                 h_start, w_start = h * self.stride, w * self.stride # Ajustar las posiciones iniciales segun el stride. Por defecto stride = 1.
                 h_end, w_end = h_start + self.filter_size, w_start + self.filter_size # Ajusta las posiciones finales sumandoles el tamaño del filtro.
                 
-                x_region = self.forward_data[:, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
+                x_region = x[:, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
                 weigth_grads += np.tensordot(x_region, x_grad[:, :, h, w], axes=([0], [0])).transpose(1, 2, 0, 3) # Gradientes con respecto a los pesos. Hace falta transponer?
 
                 for b in range(batch_size): # Calcular los gradientes con respecto a la entrada
                     data_grads[b, :, h_start:h_end, w_start:w_end] += np.tensordot(
                         x_grad[b, :, h, w], self.weights, axes=([0], [3])
                     ).transpose(2, 0, 1) # Hace falta transponer?
-
+        
+        if self.padding:
+            data_grads = data_grads[:, :, self.padding:input_height + self.padding, self.padding:input_width + self.padding] # Eliminar el padding de los gradientes con respecto a la entrada
+        
         self.weights_grads = weigth_grads
         self.bias_grads = bias_grads
         return data_grads
