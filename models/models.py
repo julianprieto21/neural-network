@@ -4,16 +4,18 @@ from .layers import Layer
 from training.losses import Loss
 
 class NeuralNetwork:
-    def __init__(self, layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: any, verbose: bool=True) -> None:
+    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: any, verbose: bool=True) -> None:
         """
         Constructor de un modelo de red neuronal
 
+        :param input_shape: forma de la entrada
         :param layers: capas de la red
         :param optimizer: método de optimización
         :param loss: función de pérdida
         :param metrics: función de cálculo de métricas
         :param verbose: indica si se debe mostrar mensajes de progreso
         """
+        self.input_shape = (None,) + input_shape
         self.layers = layers
         self.optimizer = optimizer
         self.loss = loss
@@ -37,18 +39,21 @@ class NeuralNetwork:
         """
         if self.verbose:
             print(text)
+
+
 class ConvolutionalNeuralNetwork(NeuralNetwork):
-    def __init__(self, layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: any, verbose: bool=True) -> None:
+    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: any, verbose: bool=True) -> None:
         """
         Constructor de un modelo de red neuronal
 
+        :param input_shape: forma de la entrada
         :param layers: capas de la red
         :param optimizer: método de optimización
         :param loss: función de pérdida
         :param metrics: función de cálculo de métricas
         :param verbose: indica si se debe mostrar mensajes de progreso
         """
-        super().__init__(layers, optimizer, loss, metrics, verbose)
+        super().__init__(input_shape, layers, optimizer, loss, metrics, verbose)
     
     def summary(self) -> None:
         """
@@ -56,7 +61,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         parameters = sum(arr.size for arr in self.get_params())
         print(f'Modelo de red neuronal con {len(self.layers) + 1} capas:')
-        print(f'- input: Entrada - {self.layers[0].input_shape}')
+        print(f'- input: Entrada - {self.input_shape}')
         for layer in self.layers:
             if layer.weights is not None: 
                 print(f'- {layer.name}: {layer.__class__.__name__} - {layer.output_shape} - {layer.weights.size + layer.bias.size} params')
@@ -73,10 +78,10 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         Compila el modelo.
         """
+        self.layers[0].compile(self.input_shape)
         output_shape = self.layers[0].output_shape
         for layer in self.layers[1:]:
-            layer.input_shape = output_shape
-            layer.compile()
+            layer.compile(output_shape)
             output_shape = layer.output_shape
         self.params = self.get_params()
 
@@ -210,6 +215,6 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         loss = self.loss(test_labels, pred)
         metric = self.metrics(test_labels, pred)
 
-        loss /= test_data.shape[0]
-        metric /= test_data.shape[0]
+        # loss /= test_data.shape[0]
+        # metric /= test_data.shape[0]
         return loss, metric
