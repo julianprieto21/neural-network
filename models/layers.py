@@ -141,118 +141,6 @@ class Dense(Layer):
         self.bias_grads = bias_grads
         return data_grads
 
-class MaxPool2D(Layer):
-    def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
-        """
-        Constructor de una capa de red neuronal de max pooling
-        
-        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
-        :param pool_size: tamaño del pooling
-        :param stride: paso de la convolución. Por defecto None
-        :param padding: padding de la convolución. Por defecto 'valid'
-        """
-        self.pool_size = pool_size
-        self.stride = self.pool_size if stride is None else stride
-        self.padding = padding
-        super().__init__(input_shape=input_shape, name=name)
-
-    def compile(self, input_shape: tuple[int, ...]=None) -> None:
-        """
-        Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
-        """
-        if self.padding == 'valid': 
-            self.padding = 0
-
-            out_height = (input_shape[2] - self.pool_size) // self.stride + 1
-            out_width = (input_shape[3] - self.pool_size) // self.stride + 1
-        elif self.padding == 'same':
-            output_size = math.ceil(input_shape[2] / self.stride)
-            padd_total = max(0, (output_size - 1) * self.stride + self.pool_size - input_shape[2])
-            self.padding = math.ceil(padd_total // 2)
-
-            out_height = (input_shape[2] + 2 * self.padding - self.pool_size) // self.stride + 1
-            out_width = (input_shape[3] + 2 * self.padding - self.pool_size) // self.stride + 1
-        else:
-            raise ValueError(f'Padding {self.padding} no soportado. Utilice "valid" o "same"')
-
-        self.output_shape = (None, input_shape[1], out_height, out_width)
-
-
-    def __call__(self, x: np.ndarray) -> np.ndarray:
-        """
-        Realiza una propagación hacia adelante
-
-        :param x: tensor de entrada
-        :return output: tensor de salida
-        """
-        self.forward_data = x
-        _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
-        batch_size, channels, _, _ = x.shape # (batches, channels, height, width)
-        
-        if self.padding:
-            x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
-        
-        # TODO: Entender implementación y funcionamiento de función.
-        strided_x = np.lib.stride_tricks.as_strided(
-            x,
-            shape=(
-                batch_size,
-                channels,
-                output_height,
-                output_width,
-                self.pool_size,
-                self.pool_size,
-            ),
-            strides=(
-                x.strides[0],  # batch stride
-                x.strides[1],  # channel stride
-                x.strides[2] * self.stride,  # spatial height stride
-                x.strides[3] * self.stride,  # spatial width stride
-                x.strides[2],  # pool height stride
-                x.strides[3],  # pool width stride
-            ),
-            writeable=False,
-        )
-
-        output = np.amax(strided_x, axis=(-2, -1)) # Aplicar max pooling
-        output = np.reshape(output, (batch_size, channels, output_height, output_width)) # Asegurarse que tener formato estándar (batches, channels, height, width)
-
-        return output
-
-    def backward(self, x_grad: np.ndarray) -> np.ndarray:
-        """
-        Realiza una propagación hacia atrás
-
-        :param x_grad: gradientes de la propagación hacia adelante
-        :return: gradientes de la propagación hacia atrás
-        """
-        x = self.forward_data # (batches, channels, height, width)
-        data_grads = np.zeros(x.shape) # (batches, channels, height, width)
-        pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
-        stride_h, stride_w = self.stride, self.stride # Paso del pooling
-        _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
-
-        for b in range(x.shape[0]):
-            for h in range(output_height):
-                for w in range(output_width):
-                    h_start, w_start = h * stride_h, w * stride_w # Posiciones iniciales
-                    h_end, w_end = h_start + pool_h, w_start + pool_w # Posiciones finales
-
-                    patch = x[b, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
-                    max_val = np.max(patch, axis=(1, 2), keepdims=True) # Máscara de los valores máximos
-                    mask = (patch == max_val) # Máscara de los valores máximos
-
-                    for c in range(mask.shape[0]):  # Iterar por canal
-                        flat_mask = mask[c].reshape(-1)  # Aplanar para simplificar
-                        true_indices = np.flatnonzero(flat_mask)  # Índices donde mask es True
-                        if len(true_indices) > 1:
-                            flat_mask[true_indices[1:]] = False  # Dejar solo el primer True
-                        mask[c] = flat_mask.reshape(mask[c].shape)  # Restaurar forma original
-
-                    grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
-                    data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
-        return data_grads
-
 class Conv2D(Layer):
     def __init__(self, filters: int, filter_size: int, activation: Activation=None, name: str='conv', input_shape: tuple[int, ...]=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None):
         """
@@ -362,9 +250,300 @@ class Conv2D(Layer):
         self.weights_grads = weigth_grads
         self.bias_grads = bias_grads
         return data_grads
-                
-class MinPool2D(Layer):
-    pass
 
-class AvgPool2D(Layer):
-    pass
+class Pool2D(Layer):
+    def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
+        """
+        Constructor de una capa de red neuronal de max pooling
+        
+        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
+        :param: name: nombre de la capa
+        :param pool_size: tamaño del pooling
+        :param stride: paso de la convolución. Por defecto None
+        :param padding: padding de la convolución. Por defecto 'valid'
+        """
+        self.pool_size = pool_size
+        self.stride = self.pool_size if stride is None else stride
+        self.padding = padding
+        super().__init__(input_shape=input_shape, name=name)
+
+    def compile(self, input_shape: tuple[int, ...]=None) -> None:
+        """
+        Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
+        """
+        if self.padding == 'valid': 
+            self.padding = 0
+
+            out_height = (input_shape[2] - self.pool_size) // self.stride + 1
+            out_width = (input_shape[3] - self.pool_size) // self.stride + 1
+        elif self.padding == 'same':
+            output_size = math.ceil(input_shape[2] / self.stride)
+            padd_total = max(0, (output_size - 1) * self.stride + self.pool_size - input_shape[2])
+            self.padding = math.ceil(padd_total // 2)
+
+            out_height = (input_shape[2] + 2 * self.padding - self.pool_size) // self.stride + 1
+            out_width = (input_shape[3] + 2 * self.padding - self.pool_size) // self.stride + 1
+        else:
+            raise ValueError(f'Padding {self.padding} no soportado. Utilice "valid" o "same"')
+
+        self.output_shape = (None, input_shape[1], out_height, out_width)
+
+    def __call__():
+        raise NotImplementedError
+    
+    def backward():
+        raise NotImplementedError
+
+class MaxPool2D(Pool2D):
+    def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
+        """
+        Constructor de una capa de red neuronal de max pooling
+        
+        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
+        :param: name: nombre de la capa
+        :param pool_size: tamaño del pooling
+        :param stride: paso de la convolución. Por defecto None
+        :param padding: padding de la convolución. Por defecto 'valid'
+        """
+        super().__init__(input_shape=input_shape, name=name, pool_size=pool_size, stride=stride, padding=padding)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante
+
+        :param x: tensor de entrada
+        :return output: tensor de salida
+        """
+        self.forward_data = x
+        _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
+        batch_size, channels, _, _ = x.shape # (batches, channels, height, width)
+        
+        if self.padding:
+            x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
+        
+        # TODO: Entender implementación y funcionamiento de función.
+        strided_x = np.lib.stride_tricks.as_strided(
+            x,
+            shape=(
+                batch_size,
+                channels,
+                output_height,
+                output_width,
+                self.pool_size,
+                self.pool_size,
+            ),
+            strides=(
+                x.strides[0],  # batch stride
+                x.strides[1],  # channel stride
+                x.strides[2] * self.stride,  # spatial height stride
+                x.strides[3] * self.stride,  # spatial width stride
+                x.strides[2],  # pool height stride
+                x.strides[3],  # pool width stride
+            ),
+            writeable=False,
+        )
+
+        output = np.amax(strided_x, axis=(-2, -1)) # Aplicar max pooling
+        output = np.reshape(output, (batch_size, channels, output_height, output_width)) # Asegurarse que tener formato estándar (batches, channels, height, width)
+
+        return output
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        x = self.forward_data # (batches, channels, height, width)
+        data_grads = np.zeros(x.shape) # (batches, channels, height, width)
+        pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
+        stride_h, stride_w = self.stride, self.stride # Paso del pooling
+        _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
+
+        for b in range(x.shape[0]):
+            for h in range(output_height):
+                for w in range(output_width):
+                    h_start, w_start = h * stride_h, w * stride_w # Posiciones iniciales
+                    h_end, w_end = h_start + pool_h, w_start + pool_w # Posiciones finales
+
+                    patch = x[b, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
+                    max_val = np.max(patch, axis=(1, 2), keepdims=True) # Máscara de los valores máximos
+                    mask = (patch == max_val) # Máscara de los valores máximos
+
+                    for c in range(mask.shape[0]):  # Iterar por canal
+                        flat_mask = mask[c].reshape(-1)  # Aplanar para simplificar
+                        true_indices = np.flatnonzero(flat_mask)  # Índices donde mask es True
+                        if len(true_indices) > 1:
+                            flat_mask[true_indices[1:]] = False  # Dejar solo el primer True
+                        mask[c] = flat_mask.reshape(mask[c].shape)  # Restaurar forma original
+
+                    grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
+                    data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
+        return data_grads
+
+class MinPool2D(Pool2D):
+    def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
+        """
+        Constructor de una capa de red neuronal de max pooling
+        
+        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
+        :param: name: nombre de la capa
+        :param pool_size: tamaño del pooling
+        :param stride: paso de la convolución. Por defecto None
+        :param padding: padding de la convolución. Por defecto 'valid'
+        """
+        super().__init__(input_shape=input_shape, name=name, pool_size=pool_size, stride=stride, padding=padding)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante
+
+        :param x: tensor de entrada
+        :return output: tensor de salida
+        """
+        self.forward_data = x
+        _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
+        batch_size, channels, _, _ = x.shape # (batches, channels, height, width)
+        
+        if self.padding:
+            x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
+        
+        # TODO: Entender implementación y funcionamiento de función.
+        strided_x = np.lib.stride_tricks.as_strided(
+            x,
+            shape=(
+                batch_size,
+                channels,
+                output_height,
+                output_width,
+                self.pool_size,
+                self.pool_size,
+            ),
+            strides=(
+                x.strides[0],  # batch stride
+                x.strides[1],  # channel stride
+                x.strides[2] * self.stride,  # spatial height stride
+                x.strides[3] * self.stride,  # spatial width stride
+                x.strides[2],  # pool height stride
+                x.strides[3],  # pool width stride
+            ),
+            writeable=False,
+        )
+
+        output = np.amin(strided_x, axis=(-2, -1)) # Aplicar min pooling
+        output = np.reshape(output, (batch_size, channels, output_height, output_width)) # Asegurarse que tener formato estándar (batches, channels, height, width)
+
+        return output
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        x = self.forward_data # (batches, channels, height, width)
+        data_grads = np.zeros(x.shape) # (batches, channels, height, width)
+        pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
+        stride_h, stride_w = self.stride, self.stride # Paso del pooling
+        _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
+
+        for b in range(x.shape[0]):
+            for h in range(output_height):
+                for w in range(output_width):
+                    h_start, w_start = h * stride_h, w * stride_w # Posiciones iniciales
+                    h_end, w_end = h_start + pool_h, w_start + pool_w # Posiciones finales
+
+                    patch = x[b, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
+                    min_val = np.min(patch, axis=(1, 2), keepdims=True) # Máscara de los valores máximos
+                    mask = (patch == min_val) # Máscara de los valores máximos
+
+                    for c in range(mask.shape[0]):  # Iterar por canal
+                        flat_mask = mask[c].reshape(-1)  # Aplanar para simplificar
+                        true_indices = np.flatnonzero(flat_mask)  # Índices donde mask es True
+                        if len(true_indices) > 1:
+                            flat_mask[true_indices[1:]] = False  # Dejar solo el primer True
+                        mask[c] = flat_mask.reshape(mask[c].shape)  # Restaurar forma original
+
+                    grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
+                    data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
+        return data_grads
+
+class AvgPool2D(Pool2D):
+    def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
+        """
+        Constructor de una capa de red neuronal de max pooling
+        
+        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
+        :param: name: nombre de la capa
+        :param pool_size: tamaño del pooling
+        :param stride: paso de la convolución. Por defecto None
+        :param padding: padding de la convolución. Por defecto 'valid'
+        """
+        super().__init__(input_shape=input_shape, name=name, pool_size=pool_size, stride=stride, padding=padding)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante
+
+        :param x: tensor de entrada
+        :return output: tensor de salida
+        """
+        self.forward_data = x
+        _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
+        batch_size, channels, _, _ = x.shape # (batches, channels, height, width)
+        
+        if self.padding:
+            x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
+        
+        # TODO: Entender implementación y funcionamiento de función.
+        strided_x = np.lib.stride_tricks.as_strided(
+            x,
+            shape=(
+                batch_size,
+                channels,
+                output_height,
+                output_width,
+                self.pool_size,
+                self.pool_size,
+            ),
+            strides=(
+                x.strides[0],  # batch stride
+                x.strides[1],  # channel stride
+                x.strides[2] * self.stride,  # spatial height stride
+                x.strides[3] * self.stride,  # spatial width stride
+                x.strides[2],  # pool height stride
+                x.strides[3],  # pool width stride
+            ),
+            writeable=False,
+        )
+
+        output = np.mean(strided_x, axis=(-2, -1)) # Aplicar avg pooling
+        output = np.reshape(output, (batch_size, channels, output_height, output_width)) # Asegurarse que tener formato estándar (batches, channels, height, width)
+
+        return output
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        x = self.forward_data # (batches, channels, height, width)
+        data_grads = np.zeros(x.shape) # (batches, channels, height, width)
+        pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
+        stride_h, stride_w = self.stride, self.stride # Paso del pooling
+        _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
+
+        for b in range(x.shape[0]):
+            for h in range(output_height):
+                for w in range(output_width):
+                    h_start, w_start = h * stride_h, w * stride_w # Posiciones iniciales
+                    h_end, w_end = h_start + pool_h, w_start + pool_w # Posiciones finales
+
+                    grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
+                    avg_grad = grad / (pool_h * pool_w) # Gradiente promedio
+                    data_grads[b, :, h_start:h_end, w_start:w_end] += avg_grad # Gradientes con respecto a la entrada
+        return data_grads
