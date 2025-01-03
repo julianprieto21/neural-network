@@ -108,8 +108,9 @@ class Dense(Layer):
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
         self.output_shape = (None, self.neurons)
-        if self.weights is None or self.bias is None:
+        if self.weights is None:
             self.weights = initialize_parameters(shape=(input_shape[1], self.neurons), distribution='normal')
+        if self.bias is None:    
             self.bias = initialize_parameters(shape=(self.neurons), distribution='zeros')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
@@ -273,8 +274,9 @@ class Conv2D(Layer):
 
         self.output_shape = (None, self.filters, out_height, out_width) 
 
-        if self.weights is None or self.bias is None:
+        if self.weights is None:
             self.weights = initialize_parameters(shape=(self.filter_size, self.filter_size, input_shape[1], self.filters), distribution='normal')
+        if self.bias is None:    
             self.bias = initialize_parameters(shape=(self.filters), distribution='zeros')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
