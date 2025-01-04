@@ -90,7 +90,7 @@ class Flatten(Layer):
         return x_grad.reshape(batch_size, height, width, channels).transpose(0, 3, 1, 2) # TODO: Realizar de otra manera
     
 class Dense(Layer):
-    def __init__(self, neurons: int, input_shape: tuple[int, ...]=None, activation: Activation=None, name: str="dense", weights: np.array=None, bias: np.array=None) -> None:
+    def __init__(self, neurons: int, input_shape: tuple[int, ...]=None, activation: Activation=None, name: str="dense", weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros') -> None:
         """
         Constructor de una capa de red neuronal densa
 
@@ -100,6 +100,8 @@ class Dense(Layer):
 
         self.activation = activation
         self.neurons = neurons
+        self.weight_initializer = weight_initializer
+        self.bias_initializer = bias_initializer
         super().__init__(input_shape=input_shape, name=name, weights=weights, bias=bias)
     
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
@@ -109,9 +111,9 @@ class Dense(Layer):
         """
         self.output_shape = (None, self.neurons)
         if self.weights is None:
-            self.weights = initialize_parameters(shape=(input_shape[1], self.neurons), distribution='normal')
+            self.weights = initialize_parameters(shape=(input_shape[1], self.neurons), distribution=self.weight_initializer)
         if self.bias is None:
-            self.bias = initialize_parameters(shape=(self.neurons), distribution='zeros')
+            self.bias = initialize_parameters(shape=(self.neurons), distribution=self.bias_initializer, is_bias=True)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
@@ -142,7 +144,7 @@ class Dense(Layer):
         return data_grads
 
 class Conv2D(Layer):
-    def __init__(self, filters: int, filter_size: int, activation: Activation=None, name: str='conv', input_shape: tuple[int, ...]=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None):
+    def __init__(self, filters: int, filter_size: int, activation: Activation=None, name: str='conv', input_shape: tuple[int, ...]=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros'):
         """
         Constructor de una capa de red neuronal convolucional
 
@@ -158,6 +160,8 @@ class Conv2D(Layer):
         self.filter_size = filter_size
         self.stride = stride
         self.padding = padding
+        self.weights_initializer = weight_initializer
+        self.bias_initializer = bias_initializer
         super().__init__(input_shape=input_shape, name=name, weights=weights, bias=bias)
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
@@ -182,9 +186,9 @@ class Conv2D(Layer):
         self.output_shape = (None, self.filters, out_height, out_width) 
 
         if self.weights is None:
-            self.weights = initialize_parameters(shape=(self.filter_size, self.filter_size, input_shape[1], self.filters), distribution='normal')
+            self.weights = initialize_parameters(shape=(self.filter_size, self.filter_size, input_shape[1], self.filters), distribution=self.weights_initializer)
         if self.bias is None:
-            self.bias = initialize_parameters(shape=(self.filters), distribution='zeros')
+            self.bias = initialize_parameters(shape=(self.filters), distribution=self.bias_initializer, is_bias=True)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
