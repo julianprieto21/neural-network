@@ -4,26 +4,18 @@ from utils.helpers import initialize_parameters
 import math
 
 class Layer:
-    def __init__(self, input_shape: tuple[int, ...]=None, name: str='', weights: np.array=None, bias: np.array=None) -> None:
+    def __init__(self, input_shape: tuple[int, ...]=None, name: str='') -> None:
         """
         Constructor de una capa de red neuronal convolucional
 
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
-        :param activation: función de activación. Por defecto es ReLU
         :param name: nombre de la capa
-        :param neurons: cantidad de neuronas en la capa
-        :param kernel_size: tamaño del kernel
-        :param stride: paso de la convolución
-        :param padding: padding de la convolución
         """
         self.input_shape = input_shape
-        self.output_shape = None
         self.name = name
-        self.weights = weights
-        self.bias = bias
+        self.output_shape = None
         self.forward_data = None
-        self.weights_grads = None
-        self.bias_grads = None
+        self.data_grads = None
         if input_shape is not None: self.compile(input_shape)
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
@@ -87,22 +79,32 @@ class Flatten(Layer):
         :return: gradientes de la propagación hacia atrás
         """
         batch_size, channels, height, width = self.forward_data.shape
-        return x_grad.reshape(batch_size, height, width, channels).transpose(0, 3, 1, 2) # TODO: Realizar de otra manera
+        self.data_grads = x_grad.reshape(batch_size, height, width, channels).transpose(0, 3, 1, 2) # TODO: Realizar de otra manera
+        return self.data_grads
     
 class Dense(Layer):
-    def __init__(self, neurons: int, input_shape: tuple[int, ...]=None, activation: Activation=None, name: str="dense", weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros') -> None:
+    def __init__(self, neurons: int, input_shape: tuple[int, ...]=None, name: str="dense", activation: Activation=None, weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros') -> None:
         """
         Constructor de una capa de red neuronal densa
 
+        :param neurons:
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         :param name: nombre de la capa
+        :param activaction:
+        :param weights:
+        :param bias:
+        :param weight_initializer:
+        :param bias_initializer: 
         """
-
         self.activation = activation
         self.neurons = neurons
+        self.weights = weights
+        self.bias = bias
         self.weight_initializer = weight_initializer
         self.bias_initializer = bias_initializer
-        super().__init__(input_shape=input_shape, name=name, weights=weights, bias=bias)
+        self.weights_grads = None
+        self.bias_grads = None
+        super().__init__(input_shape=input_shape, name=name)
     
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
@@ -135,34 +137,41 @@ class Dense(Layer):
         :return: gradientes de la propagación hacia atrás (entrada, pesos, bias)
         """
         x_grad = self.activation.backward(x_grad) if self.activation else x_grad
-        weight_grads = np.dot(self.forward_data.T, x_grad) # Gradientes con respecto a los pesos
-        bias_grads = x_grad.sum(axis=0) # Gradientes con respecto al sesgo
-        data_grads = np.dot(x_grad, self.weights.T) # Gradientes con respecto a la entrada
+        self.weights_grads = np.dot(self.forward_data.T, x_grad) # Gradientes con respecto a los pesos
+        self.bias_grads = x_grad.sum(axis=0) # Gradientes con respecto al sesgo
+        self.data_grads = np.dot(x_grad, self.weights.T) # Gradientes con respecto a la entrada
 
-        self.weights_grads = weight_grads
-        self.bias_grads = bias_grads
-        return data_grads
+        return self.data_grads
 
 class Conv2D(Layer):
-    def __init__(self, filters: int, filter_size: int, activation: Activation=None, name: str='conv', input_shape: tuple[int, ...]=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros'):
+    def __init__(self, filters: int, filter_size: int, input_shape: tuple[int, ...]=None, name: str='conv', activation: Activation=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros'):
         """
         Constructor de una capa de red neuronal convolucional
 
-        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
-        :param activation: función de activación.
         :param filters: cantidad de filtros/neuronas en la capa.
         :param filter_size: tamaño del filtro
+        :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
+        :param name: nombre de la capa
+        :param activation: función de activación.
         :param stride: paso de la convolución. Por defecto 1
         :param padding: padding de la convolución. Por defecto 'valid'
+        :param weights:
+        :param bias:
+        :param weight_initializer:
+        :param bias_initializer: 
         """
         self.activation = activation
         self.filters = filters
         self.filter_size = filter_size
         self.stride = stride
         self.padding = padding
+        self.weights = weights
+        self.bias = bias
         self.weights_initializer = weight_initializer
         self.bias_initializer = bias_initializer
-        super().__init__(input_shape=input_shape, name=name, weights=weights, bias=bias)
+        self.weights_grads = None
+        self.bias_grads = None
+        super().__init__(input_shape=input_shape, name=name)
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
@@ -231,9 +240,9 @@ class Conv2D(Layer):
         if self.padding: 
             x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant') # Añadir padding a la entrada
         
-        data_grads = np.zeros_like(x) # Gradientes con respecto a la entrada (batch_size, channels, height, width)
-        weigth_grads = np.zeros_like(self.weights)  # Gradientes con respecto a los pesos (filter_size, filter_size, channels, filters)
-        bias_grads = np.sum(x_grad, axis=(0, 2, 3))  # Gradiente del sesgo. Se calcula directamente dada su simplicidad. (filters)
+        self.data_grads = np.zeros_like(x) # Gradientes con respecto a la entrada (batch_size, channels, height, width)
+        self.weights_grads = np.zeros_like(self.weights)  # Gradientes con respecto a los pesos (filter_size, filter_size, channels, filters)
+        self.bias_grads = np.sum(x_grad, axis=(0, 2, 3))  # Gradiente del sesgo. Se calcula directamente dada su simplicidad. (filters)
 
         for h in range(output_height):
             for w in range(output_width):
@@ -241,28 +250,26 @@ class Conv2D(Layer):
                 h_end, w_end = h_start + self.filter_size, w_start + self.filter_size # Ajusta las posiciones finales sumandoles el tamaño del filtro.
                 
                 x_region = x[:, :, h_start:h_end, w_start:w_end] # Extraer la región de la entrada
-                weigth_grads += np.tensordot(x_region, x_grad[:, :, h, w], axes=([0], [0])).transpose(1, 2, 0, 3) # Gradientes con respecto a los pesos. Hace falta transponer?
+                self.weights_grads += np.tensordot(x_region, x_grad[:, :, h, w], axes=([0], [0])).transpose(1, 2, 0, 3) # Gradientes con respecto a los pesos. Hace falta transponer?
 
                 for b in range(batch_size): # Calcular los gradientes con respecto a la entrada
-                    data_grads[b, :, h_start:h_end, w_start:w_end] += np.tensordot(
+                    self.data_grads[b, :, h_start:h_end, w_start:w_end] += np.tensordot(
                         x_grad[b, :, h, w], self.weights, axes=([0], [3])
                     ).transpose(2, 0, 1) # Hace falta transponer?
         
         if self.padding:
-            data_grads = data_grads[:, :, self.padding:input_height + self.padding, self.padding:input_width + self.padding] # Eliminar el padding de los gradientes con respecto a la entrada
-        
-        self.weights_grads = weigth_grads
-        self.bias_grads = bias_grads
-        return data_grads
+            self.data_grads = self.data_grads[:, :, self.padding:input_height + self.padding, self.padding:input_width + self.padding] # Eliminar el padding de los gradientes con respecto a la entrada
+
+        return self.data_grads
 
 class Pool2D(Layer):
     def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
         """
         Constructor de una capa de red neuronal de max pooling
         
+        :param pool_size: tamaño del pooling
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
         :param: name: nombre de la capa
-        :param pool_size: tamaño del pooling
         :param stride: paso de la convolución. Por defecto None
         :param padding: padding de la convolución. Por defecto 'valid'
         """
@@ -360,7 +367,7 @@ class MaxPool2D(Pool2D):
         :return: gradientes de la propagación hacia atrás
         """
         x = self.forward_data # (batches, channels, height, width)
-        data_grads = np.zeros(x.shape) # (batches, channels, height, width)
+        self.data_grads = np.zeros(x.shape) # (batches, channels, height, width)
         pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
         stride_h, stride_w = self.stride, self.stride # Paso del pooling
         _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
@@ -383,17 +390,17 @@ class MaxPool2D(Pool2D):
                         mask[c] = flat_mask.reshape(mask[c].shape)  # Restaurar forma original
 
                     grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
-                    data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
-        return data_grads
+                    self.data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
+        return self.data_grads
 
 class MinPool2D(Pool2D):
     def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
         """
         Constructor de una capa de red neuronal de max pooling
         
+        :param pool_size: tamaño del pooling
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
         :param: name: nombre de la capa
-        :param pool_size: tamaño del pooling
         :param stride: paso de la convolución. Por defecto None
         :param padding: padding de la convolución. Por defecto 'valid'
         """
@@ -448,7 +455,7 @@ class MinPool2D(Pool2D):
         :return: gradientes de la propagación hacia atrás
         """
         x = self.forward_data # (batches, channels, height, width)
-        data_grads = np.zeros(x.shape) # (batches, channels, height, width)
+        self.data_grads = np.zeros(x.shape) # (batches, channels, height, width)
         pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
         stride_h, stride_w = self.stride, self.stride # Paso del pooling
         _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
@@ -471,17 +478,17 @@ class MinPool2D(Pool2D):
                         mask[c] = flat_mask.reshape(mask[c].shape)  # Restaurar forma original
 
                     grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
-                    data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
-        return data_grads
+                    self.data_grads[b, :, h_start:h_end, w_start:w_end] += grad * mask # Gradientes con respecto a la entrada
+        return self.data_grads
 
 class AvgPool2D(Pool2D):
     def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
         """
         Constructor de una capa de red neuronal de max pooling
         
+        :param pool_size: tamaño del pooling
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
         :param: name: nombre de la capa
-        :param pool_size: tamaño del pooling
         :param stride: paso de la convolución. Por defecto None
         :param padding: padding de la convolución. Por defecto 'valid'
         """
@@ -536,7 +543,7 @@ class AvgPool2D(Pool2D):
         :return: gradientes de la propagación hacia atrás
         """
         x = self.forward_data # (batches, channels, height, width)
-        data_grads = np.zeros(x.shape) # (batches, channels, height, width)
+        self.data_grads = np.zeros(x.shape) # (batches, channels, height, width)
         pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
         stride_h, stride_w = self.stride, self.stride # Paso del pooling
         _, _, output_height, output_width = x_grad.shape # (batches, channels, output_height, output_width)
@@ -549,5 +556,5 @@ class AvgPool2D(Pool2D):
 
                     grad = x_grad[b, :, h, w][:, np.newaxis, np.newaxis] # Gradiente de la salida
                     avg_grad = grad / (pool_h * pool_w) # Gradiente promedio
-                    data_grads[b, :, h_start:h_end, w_start:w_end] += avg_grad # Gradientes con respecto a la entrada
-        return data_grads
+                    self.data_grads[b, :, h_start:h_end, w_start:w_end] += avg_grad # Gradientes con respecto a la entrada
+        return self.data_grads

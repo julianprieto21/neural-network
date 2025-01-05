@@ -23,7 +23,6 @@ class NeuralNetwork:
         self.metrics = metrics
         self.verbose = verbose
         self.params = None
-        self.data_grads = None
         self.compile()
     
     def compile(self) -> None:
@@ -64,7 +63,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         print(f'Modelo de red neuronal con {len(self.layers) + 1} capas:')
         print(f'- input: Entrada - {self.input_shape}')
         for layer in self.layers:
-            if layer.weights is not None: 
+            if hasattr(layer, 'weights') and hasattr(layer, 'bias'):
                 print(f'- {layer.name}: {layer.__class__.__name__} - {layer.output_shape} - {layer.weights.size + layer.bias.size} params')
                 print(f'    Pesos: ', layer.weights.shape)
                 print(f'    Bias: ', layer.bias.shape)
@@ -94,12 +93,12 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         params = []
         for layer in self.layers:
-            if layer.weights is not None and layer.bias is not None:
+            if hasattr(layer, 'weights') and hasattr(layer, 'bias'):
                 params.append(layer.weights)
                 params.append(layer.bias)
         return params
 
-    def _get_grads(self) -> list[np.ndarray]:
+    def _get_parameter_grads(self) -> list[np.ndarray]:
         """
         Obtiene los gradientes de los parámetros del modelo
 
@@ -107,7 +106,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         grads = []
         for layer in self.layers:
-            if layer.weights is not None and layer.bias is not None:
+            if hasattr(layer, 'weights') and hasattr(layer, 'bias'):
                 grads.append(layer.weights_grads)
                 grads.append(layer.bias_grads)
         return grads
@@ -136,8 +135,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         grad_output = self.loss.backward(y, preds)
         for layer in reversed(self.layers):
             grad_output = layer.backward(grad_output)
-        self.data_grads = grad_output
-        return self._get_grads()
+        return self._get_parameter_grads()
         
     def _update_params(self, param_grads: list[np.ndarray]) -> None:
         """
@@ -148,7 +146,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         self.params = self.optimizer(self.params, param_grads)
         i = 0
         for layer in self.layers:
-            if layer.weights is not None and layer.bias is not None:
+            if hasattr(layer, 'weights') and hasattr(layer, 'bias'):
                 layer.weights = self.params[i]
                 layer.bias = self.params[i+1]
                 i += 2
