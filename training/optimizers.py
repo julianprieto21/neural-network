@@ -85,7 +85,7 @@ class RMSprop(Optimizer):
         updated_params = []
         if self.velocities is None:
             self.velocities = [np.zeros_like(param) for param in params]
-        if self.momentums is None and self.momentum is not None:
+        if self.momentums is None:
             self.momentums = [np.zeros_like(param) for param in params]
 
         for i, (param, grad) in enumerate(zip(params, grads)):
@@ -126,22 +126,21 @@ class Adam(Optimizer):
         :param grads: lista de gradientes
         :return updated_params: lista de parámetros actualizados
         """
-        raise NotImplementedError
-        # updated_params = []
-        # if self.velocities is None:
-        #     self.velocities = [np.zeros_like(param) for param in params]
-        # if self.momentums is None:
-        #     self.momentums = [np.zeros_like(param) for param in params]
+        updated_params = []
+        if self.velocities is None:
+            self.velocities = [np.zeros_like(param) for param in params]
+        if self.momentums is None:
+            self.momentums = [np.zeros_like(param) for param in params]
 
-        # beta1_power = self.beta1 ** (self.iteration + 1)
-        # beta2_power = self.beta2 ** (self.iteration + 1)
+        beta1_power = self.beta1 ** (self.iteration + 1)
+        beta2_power = self.beta2 ** (self.iteration + 1)
 
-        # for i, (param, grad) in enumerate(zip(params, grads)):
-        #     print(self.velocities[i])
-        #     alpha = self.learning_rate * np.sqrt(1 - beta2_power) / (1 - beta1_power)
-        #     self.momentums[i] = (grad - self.momentums[i]) * (1 - self.beta1)
-        #     self.velocities[i] = (grad ** self.velocities[i]) - (1 - self.beta2)
-        #     param -= alpha * self.momentums[i] / (np.sqrt(self.velocities[i]) + self.epsilon)
-        #     param = np.where(abs(param) < self.epsilon, 0, param)
-        #     updated_params.append(param)
-        # return updated_params
+        for i, (param, grad) in enumerate(zip(params, grads)):
+            alpha = (self.learning_rate * np.sqrt(1 - beta2_power)) / (1 - beta1_power)
+            self.momentums[i] += (grad - self.momentums[i]) * (1 - self.beta1)
+            self.velocities[i] += (grad**2 - self.velocities[i]) * (1 - self.beta2)
+
+            param -= (alpha * self.momentums[i]) / (np.sqrt(self.velocities[i]) + self.epsilon)
+            param = np.where(abs(param) < self.epsilon, 0, param)
+            updated_params.append(param)
+        return updated_params
