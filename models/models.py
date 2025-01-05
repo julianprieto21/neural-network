@@ -151,7 +151,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
                 layer.bias = self.params[i+1]
                 i += 2
 
-    def train(self, train_data: np.ndarray, train_labels: np.ndarray, validation_data: np.ndarray=None, validation_labels: np.ndarray=None, epochs: int=10, batch_size: int=32) -> None:
+    def train(self, train_data: np.ndarray, train_labels: np.ndarray, validation_data: tuple[np.ndarray, np.ndarray]=(None, None), epochs: int=10, batch_size: int=32) -> None:
         """
         Entrena el modelo de red neuronal
 
@@ -160,9 +160,12 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         :param epochs: cantidad de epoches
         :param batch_size: tamaño de la batch
         """
+        metric_name = self.metrics.__name__
 
-        global_loss = []
-        global_metric = []
+        train_global_loss = []
+        train_global_metric = []
+        valid_global_loss = []
+        valid_global_metric = []
         self.log("Entreando el modelo...")
         for epoch in range(epochs):
             for batch in range(0, train_data.shape[0], batch_size):
@@ -182,14 +185,19 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
                 ]
                 self._update_params(param_grads)
                 
-            self.log(f'Epoch {epoch + 1}/{epochs} - Loss: {np.mean(loss_history):.4f} - Metric: {np.mean(metric_history)}')
-            global_loss.append(np.mean(loss_history))
-            global_metric.append(np.mean(metric_history))
+            self.log(f'Epoch {epoch + 1}/{epochs} - Loss: {np.mean(loss_history):.4f} - {metric_name}: {np.mean(metric_history)}')
+            train_global_loss.append(np.mean(loss_history))
+            train_global_metric.append(np.mean(metric_history))
             if validation_data is not None:
-                loss, metric = self.evaluate(validation_data, validation_labels)
-                self.log(f'Validation - Loss: {loss:.4f} - Metric: {metric}')
+                loss, metric = self.evaluate(validation_data[0], validation_data[1])
+                self.log(f'Validation - Loss: {loss:.4f} - {metric_name}: {metric}')
+                valid_global_loss.append(loss)
+                valid_global_metric.append(metric)
         
-        return global_loss, global_metric
+        return {
+            'train': {'loss': train_global_loss, metric_name: train_global_metric},
+            'valid': {'loss': valid_global_loss, metric_name: valid_global_metric}
+        }
 
     def predict(self, test_data: np.ndarray, probs: bool=True) -> np.ndarray:
         """
