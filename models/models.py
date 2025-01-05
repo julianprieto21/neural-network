@@ -2,6 +2,7 @@ import numpy as np
 from training.optimizers import Optimizer
 from .layers import Layer
 from training.losses import Loss
+import h5py
 
 class NeuralNetwork:
     def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: any, verbose: bool=True) -> None:
@@ -215,6 +216,21 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         loss = self.loss(test_labels, pred)
         metric = self.metrics(test_labels, pred)
 
-        # loss /= test_data.shape[0]
-        # metric /= test_data.shape[0]
         return loss, metric
+    
+    def save_parameters(self, filename: str='parameters') -> None:
+        """
+        Guarda los parámetros del modelo en un archivo .h5
+        """
+        with h5py.File(f'parameters/{filename}.h5', 'w') as file:
+            for i, param in enumerate(self.params):
+                file.create_dataset(f'param_{i}', data=param)
+
+    def load_parameters(self, filename: str='parameters') -> None:
+        """
+        Carga los parámetros del modelo desde un archivo .h5
+        """
+        with h5py.File(f'parameters/{filename}.h5', 'r') as file:
+            for i, param in enumerate(self.params):
+                param[...] = file[f'param_{i}'][...]
+                self.params[i] = param
