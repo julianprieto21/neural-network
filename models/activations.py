@@ -83,3 +83,59 @@ class Softmax(Activation):
         :return: matriz de derivada de entrada
         """
         return x_grad
+
+class Sigmoid(Activation):
+    def __init__(self) -> None:
+        """
+        Constructor de una función de activación Sigmoid
+        """
+        super().__init__('sigmoid')
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación de la función de activación Sigmoid
+
+        :param x: matriz de entrada
+        :return: matriz de salida de la función de activación Sigmoid
+        """
+
+        self.forward_data = 1 / (1 + np.exp(-x))
+        return self.forward_data
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación de la derivada de la función de activación Sigmoid
+
+        :param x_grad: matriz de derivada de salida
+        :return: matriz de derivada de entrada
+        """
+
+        return x_grad * (self.forward_data * (1 - self.forward_data))
+    
+class Tanh(Activation):
+    def __init__(self) -> None:
+        """
+        Constructor de una función de activación Tanh
+        """
+        super().__init__('tanh')
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación de la función de activación Tanh
+
+        :param x: matriz de entrada
+        :return: matriz de salida de la función de activación Tanh
+        """
+
+        self.forward_data = np.tanh(x)
+        return self.forward_data
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación de la derivada de la función de activación Tanh
+
+        :param x_grad: matriz de derivada de salida
+        :return: matriz de derivada de entrada
+        """
+
+        return x_grad * (1 - self.forward_data ** 2)
