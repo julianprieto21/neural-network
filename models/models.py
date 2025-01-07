@@ -1,6 +1,6 @@
 import numpy as np
 from training.optimizers import Optimizer
-from .layers import Layer
+from .layers import Layer, Conv2D
 from training.losses import Loss
 import h5py
 
@@ -39,6 +39,23 @@ class NeuralNetwork:
         """
         if self.verbose:
             print(text)
+
+    def save_parameters(self, filename: str='parameters') -> None:
+        """
+        Guarda los parámetros del modelo en un archivo .h5
+        """
+        with h5py.File(f'parameters/{filename}.h5', 'w') as file:
+            for i, param in enumerate(self.params):
+                file.create_dataset(f'param_{i}', data=param)
+
+    def load_parameters(self, filename: str='parameters') -> None:
+        """
+        Carga los parámetros del modelo desde un archivo .h5
+        """
+        with h5py.File(f'parameters/{filename}.h5', 'r') as file:
+            for i, param in enumerate(self.params):
+                param[...] = file[f'param_{i}'][...]
+                self.params[i] = param
 
 
 class ConvolutionalNeuralNetwork(NeuralNetwork):
@@ -106,7 +123,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         grads = []
         for layer in self.layers:
-            if hasattr(layer, 'weights') and hasattr(layer, 'bias'):
+            if hasattr(layer, 'weights_grads') and hasattr(layer, 'bias_grads'):
                 grads.append(layer.weights_grads)
                 grads.append(layer.bias_grads)
         return grads
@@ -223,20 +240,3 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         metric = self.metrics(test_labels, pred)
 
         return loss, metric
-    
-    def save_parameters(self, filename: str='parameters') -> None:
-        """
-        Guarda los parámetros del modelo en un archivo .h5
-        """
-        with h5py.File(f'parameters/{filename}.h5', 'w') as file:
-            for i, param in enumerate(self.params):
-                file.create_dataset(f'param_{i}', data=param)
-
-    def load_parameters(self, filename: str='parameters') -> None:
-        """
-        Carga los parámetros del modelo desde un archivo .h5
-        """
-        with h5py.File(f'parameters/{filename}.h5', 'r') as file:
-            for i, param in enumerate(self.params):
-                param[...] = file[f'param_{i}'][...]
-                self.params[i] = param
