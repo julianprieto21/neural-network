@@ -1,17 +1,19 @@
+from __future__ import annotations
+import inspect
 import numpy as np
-from .activations import Activation
+from .activations import Activation, Sigmoid, Tanh
 from utils.helpers import initialize_parameters
 import math
 
 class Layer:
-    def __init__(self, input_shape: tuple[int, ...]=None, name: str='') -> None:
+    def __init__(self, input_shape: tuple[int, ...]=None, name: str='layer') -> None:
         """
         Constructor de una capa de red neuronal convolucional
 
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         :param name: nombre de la capa
         """
-        self.input_shape = input_shape
+        # self.input_shape = input_shape
         self.name = name
         self.output_shape = None
         self.forward_data = None
@@ -43,6 +45,27 @@ class Layer:
         """
         raise NotImplementedError
 
+    def copy(self) -> Layer:
+        """
+        Devuelve una copia de la capa
+
+        :return: copia de la capa
+        """
+        signature = inspect.signature(type(self).__init__) # Obtener la firma del constructor (__init__)
+        init_params = signature.parameters
+
+        init_args = { # Extraer los valores de los parámetros obligatorios de la instancia actual
+            name: getattr(self, name)
+            for name, param in init_params.items()
+            if name != "self" and hasattr(self, name)
+        }
+
+        new_layer = type(self)(**init_args) # Crear una nueva instancia usando los argumentos extraídos
+        for attr, value in self.__dict__.items(): # Copiar los demás atributos
+            setattr(new_layer, attr, value)
+        return new_layer
+
+
 class Flatten(Layer):
     def __init__(self, input_shape: tuple[int, ...]=None, name: str='flatten') -> None:
         """
@@ -58,6 +81,7 @@ class Flatten(Layer):
         Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
+        self.input_shape = input_shape
         self.output_shape = (None, int(np.prod(input_shape[1:])))
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
@@ -111,6 +135,7 @@ class Dense(Layer):
         Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
+        self.input_shape = input_shape
         self.output_shape = (None, self.neurons)
         if self.weights is None:
             self.weights = initialize_parameters(shape=(input_shape[1], self.neurons), distribution=self.weight_initializer)
@@ -177,6 +202,7 @@ class Conv2D(Layer):
         """
         Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
         """
+        self.input_shape = input_shape
         if self.padding == 'valid': 
             self.padding = 0
 
@@ -282,6 +308,7 @@ class Pool2D(Layer):
         """
         Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
         """
+        self.input_shape = input_shape
         if self.padding == 'valid': 
             self.padding = 0
 
