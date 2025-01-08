@@ -42,6 +42,14 @@ def initialize_parameters(shape: tuple[int, ...], distribution: str='normal', is
         
         if distribution == 'ones':
             return np.ones(shape)
+
+        if distribution == 'orthogonal':
+            flat_shape = (shape[0], np.prod(shape[1:]))  # Aplanar la matriz si es necesario
+            random_matrix = np.random.normal(0.0, 1.0, flat_shape)  # Generar aleatorios
+            u, _, v = np.linalg.svd(random_matrix, full_matrices=False)  # SVD
+            ortho_matrix = u if u.shape == flat_shape else v
+            ortho_matrix = ortho_matrix.reshape(shape)  # Redimensionar
+            return 1.0 * ortho_matrix  # Escalar por `gain`
         
         if distribution in {'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform'}:
             fan_in, fan_out = get_fan_in_out(shape)
