@@ -76,7 +76,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         Muestra un resumen del modelo
         """
-        parameters = sum(arr.size for arr in self.get_params())
+        parameters = sum(param.size for param in self.get_params())
         print(f'Modelo de red neuronal con {len(self.layers) + 1} capas:')
         print(f'- input: Entrada - {self.input_shape}')
         for layer in self.layers:
@@ -110,12 +110,10 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         params = []
         for layer in self.layers:
-            if hasattr(layer, 'weights') and hasattr(layer, 'bias'):
-                params.append(layer.weights)
-                params.append(layer.bias)
+            params.extend(layer.get_params())
         return params
 
-    def _get_parameter_grads(self) -> list[np.ndarray]:
+    def get_grads(self) -> list[np.ndarray]:
         """
         Obtiene los gradientes de los parámetros del modelo
 
@@ -123,9 +121,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         grads = []
         for layer in self.layers:
-            if hasattr(layer, 'weights_grads') and hasattr(layer, 'bias_grads'):
-                grads.append(layer.weights_grads)
-                grads.append(layer.bias_grads)
+            grads.extend(layer.get_grads())
         return grads
 
     def __call__(self, data: np.ndarray) -> np.ndarray:
@@ -152,7 +148,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         grad_output = self.loss.backward(y, preds)
         for layer in reversed(self.layers):
             grad_output = layer.backward(grad_output)
-        return self._get_parameter_grads()
+        return self.get_grads()
         
     def _update_params(self, param_grads: list[np.ndarray]) -> None:
         """

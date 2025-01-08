@@ -65,6 +65,35 @@ class Layer:
             setattr(new_layer, attr, value)
         return new_layer
 
+    def get_params(self) -> list[np.ndarray]:
+        """ 
+        Obtiene los parámetros de la capa
+        
+        :return params: lista de parámetros
+        """
+        params = []
+        if hasattr(self, 'weights'):
+            params.append(self.weights)
+        if hasattr(self, 'recurrent_weights'):
+            params.append(self.recurrent_weights)
+        if hasattr(self, 'bias'):
+            params.append(self.bias)
+        return params
+    
+    def get_grads(self) -> list[np.ndarray]:
+        """ 
+        Obtiene los gradientes de la capa
+        
+        :return grads: lista de gradientes
+        """
+        grads = []
+        if hasattr(self, 'weights_grads'):
+            grads.append(self.weights_grads)
+        if hasattr(self, 'recurrent_weights_grads'):
+            grads.append(self.recurrent_weights_grads)
+        if hasattr(self, 'bias_grads'):
+            grads.append(self.bias_grads)
+        return grads
 
 class Flatten(Layer):
     def __init__(self, input_shape: tuple[int, ...]=None, name: str='flatten') -> None:
@@ -312,17 +341,21 @@ class Pool2D(Layer):
         if self.padding == 'valid': 
             self.padding = 0
 
-            out_height = (input_shape[2] - self.pool_size) // self.stride + 1
-            out_width = (input_shape[3] - self.pool_size) // self.stride + 1
+            # out_height = (input_shape[2] - self.pool_size) // self.stride + 1
+            # out_width = (input_shape[3] - self.pool_size) // self.stride + 1
         elif self.padding == 'same':
             output_size = math.ceil(input_shape[2] / self.stride)
             padd_total = max(0, (output_size - 1) * self.stride + self.pool_size - input_shape[2])
             self.padding = math.ceil(padd_total // 2)
 
-            out_height = (input_shape[2] + 2 * self.padding - self.pool_size) // self.stride + 1
-            out_width = (input_shape[3] + 2 * self.padding - self.pool_size) // self.stride + 1
+            # out_height = (input_shape[2] + 2 * self.padding - self.pool_size) // self.stride + 1
+            # out_width = (input_shape[3] + 2 * self.padding - self.pool_size) // self.stride + 1
+        elif self.padding >= 0:
+            self.padding = self.padding
         else:
             raise ValueError(f'Padding {self.padding} no soportado. Utilice "valid" o "same"')
+        out_height = (input_shape[2] + 2 * self.padding - self.pool_size) // self.stride + 1
+        out_width = (input_shape[3] + 2 * self.padding - self.pool_size) // self.stride + 1
 
         self.output_shape = (None, input_shape[1], out_height, out_width)
 
