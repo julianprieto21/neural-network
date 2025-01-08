@@ -183,6 +183,8 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         valid_global_metric = []
         self.log("Entreando el modelo...")
         for epoch in range(epochs):
+            p = np.random.permutation(train_data.shape[0])
+            train_data = train_data[p]
             for batch in range(0, train_data.shape[0], batch_size):
                 loss_history = []
                 metric_history = []
