@@ -13,7 +13,6 @@ class Layer:
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         :param name: nombre de la capa
         """
-        # self.input_shape = input_shape
         self.name = name
         self.output_shape = None
         self.forward_data = None
@@ -480,7 +479,6 @@ class MinPool2D(Pool2D):
         if self.padding:
             x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
         
-        # TODO: Entender implementación y funcionamiento de función.
         strided_x = np.lib.stride_tricks.as_strided(
             x,
             shape=(
@@ -492,12 +490,12 @@ class MinPool2D(Pool2D):
                 self.pool_size,
             ),
             strides=(
-                x.strides[0],  # batch stride
-                x.strides[1],  # channel stride
-                x.strides[2] * self.stride,  # spatial height stride
-                x.strides[3] * self.stride,  # spatial width stride
-                x.strides[2],  # pool height stride
-                x.strides[3],  # pool width stride
+                x.strides[0],
+                x.strides[1],
+                x.strides[2] * self.stride,
+                x.strides[3] * self.stride,
+                x.strides[2],
+                x.strides[3],
             ),
             writeable=False,
         )
@@ -568,7 +566,6 @@ class AvgPool2D(Pool2D):
         if self.padding:
             x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
         
-        # TODO: Entender implementación y funcionamiento de función.
         strided_x = np.lib.stride_tricks.as_strided(
             x,
             shape=(
@@ -580,12 +577,12 @@ class AvgPool2D(Pool2D):
                 self.pool_size,
             ),
             strides=(
-                x.strides[0],  # batch stride
-                x.strides[1],  # channel stride
-                x.strides[2] * self.stride,  # spatial height stride
-                x.strides[3] * self.stride,  # spatial width stride
-                x.strides[2],  # pool height stride
-                x.strides[3],  # pool width stride
+                x.strides[0],
+                x.strides[1],
+                x.strides[2] * self.stride,
+                x.strides[3] * self.stride,
+                x.strides[2],
+                x.strides[3],
             ),
             writeable=False,
         )
@@ -618,3 +615,138 @@ class AvgPool2D(Pool2D):
                     avg_grad = grad / (pool_h * pool_w) # Gradiente promedio
                     self.data_grads[b, :, h_start:h_end, w_start:w_end] += avg_grad # Gradientes con respecto a la entrada
         return self.data_grads
+    
+class LSTM(Layer):
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', long_term_memory: np.array=None, short_term_memory: np.array=None) -> None:
+        """
+        Constructor de una capa LSTM
+
+        :param units: cantidad de unidades
+        :param return_sequences: indica si se debe devolver una secuencia de salidas
+        :param input_shape: forma de la entrada
+        :param name: nombre de la capa
+        :param weights: pesos
+        :param bias: bias
+        :param weight_initializer: inicializador de pesos
+        :param bias_initializer: inicializador de bias
+        :param long_term_memory: memoria de largo plazo
+        :param short_term_memory: memoria de corto plazo
+        """
+        self.units = units
+        self.return_sequences = return_sequences
+        self.return_state = return_state
+        self.weights = weights
+        self.recurrent_weights = recurrent_weights
+        self.bias = bias
+        self.weights_initializer = weight_initializer
+        self.weights_initializer_recurrent = weight_initializer_recurrent
+        self.bias_initializer = bias_initializer
+        self.long_term_memory = long_term_memory
+        self.short_term_memory = short_term_memory
+        self.sigmoid = Sigmoid()
+        self.tanh = Tanh()
+        super().__init__(input_shape=input_shape, name=name)
+
+    def compile(self, input_shape: tuple[int, ...]=None) -> None:
+        """
+        Compila la capa. Inicializando sus parámetros
+        """
+        self.input_shape = input_shape
+        if self.return_sequences:
+            self.output_shape = (None, input_shape[1], self.units)
+        else:
+            self.output_shape = (None, self.units)
+        if self.short_term_memory is None:
+            self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
+        if self.long_term_memory is None:
+            self.long_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
+        if self.weights is None:
+            self.weights = initialize_parameters(shape=(input_shape[-1], 4 * self.units), distribution=self.weights_initializer)
+        if self.recurrent_weights is None:
+            self.recurrent_weights = initialize_parameters(shape=(self.units,4 * self.units), distribution=self.weights_initializer_recurrent)
+        if self.bias is None:
+            self.bias = initialize_parameters(shape=(4 * self.units), distribution=self.bias_initializer, is_bias=True)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante
+
+        :param x: tensor de entrada
+        :return output: tensor de salida
+        """
+        batchets, timesteps, input_dim = x.shape # (batches, timesteps, input_dim)
+        W_i, W_f, W_c, W_o = np.hsplit(self.weights, 4)
+        U_i, U_f, U_c, U_o = np.hsplit(self.recurrent_weights, 4)
+        b_i, b_f, b_c, b_o = np.split(self.bias, 4)
+
+        outputs = []
+        short_memories = []
+        long_memories = []
+        for b in range(batchets):
+            sequence = x[b]
+            int_outputs = []
+            self.reset_states()
+            for t in range(timesteps):
+                xt = sequence[t]
+                self.forget_gate(xt, W_f, U_f, b_f)
+                self.input_gate(xt, W_i, U_i, b_i, W_c, U_c, b_c)
+                self.output_gate(xt, W_o, U_o, b_o)
+                int_outputs.append(self.short_term_memory.squeeze())
+            short_memories.append(self.short_term_memory.squeeze())
+            long_memories.append(self.long_term_memory.squeeze())
+            int_outputs = np.array(int_outputs)
+            outputs.append(int_outputs)
+        
+        short_memories = np.array(short_memories).reshape(batchets, self.units)
+        long_memories = np.array(long_memories).reshape(batchets, self.units)
+        outputs = np.array(outputs)
+        if self.return_sequences:
+            out = outputs.reshape(batchets, self.output_shape[1], self.output_shape[2])
+            if self.return_state:
+                return out, short_memories, long_memories
+            return out
+        else:
+            out = outputs[:, -1, :]
+            if self.return_state:
+                return out, short_memories, long_memories
+            return out
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        pass
+
+    def forget_gate(self, x: np.ndarray, w_forget: np.array, u_forget: np.array, bias: np.array):
+        """
+        
+        :param x: tensor de entrada
+        """
+        z = (np.dot(x, w_forget) + np.dot(self.short_term_memory, u_forget)) + (bias+1)
+        forget_factor = self.sigmoid(z)
+        self.long_term_memory *= forget_factor
+
+    def input_gate(self, x: np.ndarray, w_input_1: np.array, u_input_1: np.array, bias_1: np.array, w_input_2: np.array, u_input_2: np.array, bias_2: np.array):
+        """
+
+        :param x: tensor de entrada
+        """
+        z_input = np.dot(x, w_input_1) + np.dot(self.short_term_memory, u_input_1) + bias_1
+        z_candidate = np.dot(x, w_input_2) + np.dot(self.short_term_memory, u_input_2) + bias_2
+
+        input_factor = self.sigmoid(z_input)
+        candidate_factor = self.tanh(z_candidate)
+        self.long_term_memory += input_factor * candidate_factor # Suma de memoria
+    
+    def output_gate(self, x: np.ndarray, w_output: np.array, u_output: np.array, bias: np.array):
+        """
+
+        :param x: tensor de entrada
+        """
+        z = np.dot(x, w_output) + np.dot(self.short_term_memory, u_output) + bias
+        output_factor = self.sigmoid(z)
+        self.short_term_memory = output_factor * self.tanh(self.long_term_memory) # Suma de memoria
+
+    def reset_states(self) -> None:
+        """
+        Reinicia los estados de la capa
+        """
+        self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros') # Inicializa memoria de largo plazo
+        self.long_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros') # Inicializa memoria de corto plazo
