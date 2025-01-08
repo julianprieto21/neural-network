@@ -617,7 +617,7 @@ class AvgPool2D(Pool2D):
         return self.data_grads
     
 class LSTM(Layer):
-    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', long_term_memory: np.array=None, short_term_memory: np.array=None) -> None:
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', long_term_memory: np.array=None, short_term_memory: np.array=None) -> None:
         """
         Constructor de una capa LSTM
 
@@ -635,6 +635,7 @@ class LSTM(Layer):
         self.units = units
         self.return_sequences = return_sequences
         self.return_state = return_state
+        self.unit_forget_bias = unit_forget_bias
         self.weights = weights
         self.recurrent_weights = recurrent_weights
         self.bias = bias
@@ -719,7 +720,8 @@ class LSTM(Layer):
         
         :param x: tensor de entrada
         """
-        z = (np.dot(x, w_forget) + np.dot(self.short_term_memory, u_forget)) + (bias+1)
+        bias = bias + 1 if self.unit_forget_bias else bias
+        z = (np.dot(x, w_forget) + np.dot(self.short_term_memory, u_forget)) + bias
         forget_factor = self.sigmoid(z)
         self.long_term_memory *= forget_factor
 
