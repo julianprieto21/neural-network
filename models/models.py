@@ -36,7 +36,7 @@ class NeuralNetwork:
         print(f'- input: Entrada - {self.input_shape}')
         for layer in self.layers:
             if hasattr(layer, 'weights') and hasattr(layer, 'bias'):
-                print(f'- {layer.name}: {layer.__class__.__name__} - {layer.output_shape} - {layer.get_params().size} params')
+                print(f'- {layer.name}: {layer.__class__.__name__} - {layer.output_shape} - {np.sum([param.size for param in layer.get_params()])} params')
                 print(f'    Pesos: ', layer.weights.shape)
                 if hasattr(layer, 'recurrent_weights'):
                     print(f'    Pesos Recurrentes: ', layer.recurrent_weights.shape)
