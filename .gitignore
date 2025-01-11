@@ -46,7 +46,5 @@ dist/
 .DS_Store
 Thumbs.db
 
-# csv
-data/mnist_test.csv
-data/mnist_train.csv
-
+# data
+data/
