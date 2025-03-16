@@ -7,6 +7,7 @@ El objetivo principal de este proyecto es programar redes neuronales desde cero 
 ### ToDo:
 
 - [x] Implementar una Red Neuronal Convolucional (CNN) funcional.
+- [ ] Realizar pruebas unitarias para verificar y asegurar el correcto funcionamiento de las implementaciones.
 - [ ] Desarrollar una Red Neuronal Recurrente (RNN) funcional.
 - [ ] Generalizar la funcionalidad de GradCam (CNN) para diferentes arquitecturas y tipos de datos.
 - [ ] Optimizar cálculos recursivos y operaciones matriciales utilizando _Numba_ para mejorar el rendimiento.
@@ -24,7 +25,7 @@ El objetivo principal de este proyecto es programar redes neuronales desde cero 
 
 - `models/`
   - Contiene las funciones y clases necesarias para la creación de redes neuronales.
-  - `tests/`
+- `tests/`
   - Pruebas unitarias para verificar la funcionalidad de las implementaciones.
 - `training/`
   - Scripts y funciones relacionadas al entrenamiento de las redes neuronales.
