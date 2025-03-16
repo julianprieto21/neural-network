@@ -134,8 +134,8 @@ class Flatten(Layer):
         :return: gradientes de la propagación hacia atrás
         """
         # TODO: REFACTORIZAR FUNCIÓN
-        self.data_grads = x_grad.reshape(batch_size, height, width, channels).transpose(0, 3, 1, 2)
         batch_size, channels, height, width = self.forward_data.shape
+        self.data_grads = x_grad.reshape(batch_size, height, width, channels).transpose(0, 3, 1, 2)
         return self.data_grads
     
 class Dense(Layer):

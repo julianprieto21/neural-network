@@ -187,7 +187,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         train_global_metric = []
         valid_global_loss = []
         valid_global_metric = []
-        self.log("Entreando el modelo...")
+        self.log("Entrenando el modelo...")
         for epoch in range(epochs):
             p = np.random.permutation(train_data.shape[0])
             train_data = train_data[p]
