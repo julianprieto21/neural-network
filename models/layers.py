@@ -8,7 +8,7 @@ import math
 class Layer:
     def __init__(self, input_shape: tuple[int, ...]=None, name: str='layer') -> None:
         """
-        Constructor de una capa de red neuronal convolucional
+        Constructor de una capa de red neuronal.
 
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         :param name: nombre de la capa
@@ -21,14 +21,15 @@ class Layer:
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
-        Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
         raise NotImplementedError
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la capa
+        Realiza una propagación hacia adelante.
 
         :param x: matriz de entrada
         :return: matriz de salida de la capa
@@ -37,16 +38,16 @@ class Layer:
 
     def backward(self, grad_x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la derivada de la capa
+        Realiza una propagación hacia atrás.
 
-        :param grad_x: matriz de derivada de salida
-        :return: matriz de derivada de entrada
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
         """
         raise NotImplementedError
 
     def copy(self) -> Layer:
         """
-        Devuelve una copia de la capa
+        Devuelve una copia de la capa.
 
         :return: copia de la capa
         """
@@ -66,9 +67,9 @@ class Layer:
 
     def get_params(self) -> list[np.ndarray]:
         """ 
-        Obtiene los parámetros de la capa
+        Obtiene los parámetros de la capa.
         
-        :return params: lista de parámetros
+        :return: lista de parámetros
         """
         params = []
         if hasattr(self, 'weights'):
@@ -81,9 +82,9 @@ class Layer:
     
     def get_grads(self) -> list[np.ndarray]:
         """ 
-        Obtiene los gradientes de la capa
+        Obtiene los gradientes de la capa.
         
-        :return grads: lista de gradientes
+        :return: lista de gradientes
         """
         grads = []
         if hasattr(self, 'weights_grads'):
@@ -97,7 +98,7 @@ class Layer:
 class Flatten(Layer):
     def __init__(self, input_shape: tuple[int, ...]=None, name: str='flatten') -> None:
         """
-        Constructor de una capa de red neuronal flatten
+        Constructor de una capa flatten.
 
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         :param name: nombre de la capa
@@ -106,7 +107,8 @@ class Flatten(Layer):
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
-        Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
         self.input_shape = input_shape
@@ -114,39 +116,41 @@ class Flatten(Layer):
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia adelante
+        Realiza una propagación hacia adelante.
 
-        :param x: tensor de entrada
-        :return y: tensor de salida
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
         """
+        # TODO: REFACTORIZAR FUNCIÓN
         self.forward_data = x
         batch_size = x.shape[0]
-        return x.transpose(0, 2, 3, 1).reshape(batch_size, self.output_shape[1]) # TODO: Realizar de otra manera
+        return x.transpose(0, 2, 3, 1).reshape(batch_size, self.output_shape[1])
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia atrás
+        Realiza una propagación hacia atrás.
 
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
         """
+        # TODO: REFACTORIZAR FUNCIÓN
+        self.data_grads = x_grad.reshape(batch_size, height, width, channels).transpose(0, 3, 1, 2)
         batch_size, channels, height, width = self.forward_data.shape
-        self.data_grads = x_grad.reshape(batch_size, height, width, channels).transpose(0, 3, 1, 2) # TODO: Realizar de otra manera
         return self.data_grads
     
 class Dense(Layer):
     def __init__(self, neurons: int, input_shape: tuple[int, ...]=None, name: str="dense", activation: Activation=None, weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros') -> None:
         """
-        Constructor de una capa de red neuronal densa
+        Constructor de una capa densa.
 
-        :param neurons:
+        :param neurons: número de neuronas
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         :param name: nombre de la capa
-        :param activaction:
-        :param weights:
-        :param bias:
-        :param weight_initializer:
-        :param bias_initializer: 
+        :param activation: función de activación
+        :param weights: pesos
+        :param bias: bias
+        :param weight_initializer: inicializador de pesos. Por defecto 'glorot_uniform'
+        :param bias_initializer: inicializador de bias. Por defecto 'zeros'
         """
         self.activation = activation
         self.neurons = neurons
@@ -160,7 +164,8 @@ class Dense(Layer):
     
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
-        Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
         :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
         self.input_shape = input_shape
@@ -172,34 +177,34 @@ class Dense(Layer):
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia adelante
+         Realiza una propagación hacia adelante.
 
-        :param x: tensor de entrada
-        :return output: tensor de salida
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
         """
-        self.forward_data = x # Guardar datos de entrada para la propagación hacia atrás
-        z = x.dot(self.weights) + self.bias # Realizar la multiplicación de los pesos y sumar el sesgo
-        output = self.activation(z) if self.activation else z # Aplicar la función de activación si es que existe
+        self.forward_data = x
+        z = x.dot(self.weights) + self.bias
+        output = self.activation(z) if self.activation else z
         return output
     
     def backward(self, x_grad: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Realiza una propagación hacia atrás
+        Realiza una propagación hacia atrás.
 
         :param x_grad: gradientes de la propagación hacia adelante
-        :return: gradientes de la propagación hacia atrás (entrada, pesos, bias)
+        :return: gradientes de la propagación hacia atrás
         """
         x_grad = self.activation.backward(x_grad) if self.activation else x_grad
-        self.weights_grads = np.dot(self.forward_data.T, x_grad) # Gradientes con respecto a los pesos
-        self.bias_grads = x_grad.sum(axis=0) # Gradientes con respecto al sesgo
-        self.data_grads = np.dot(x_grad, self.weights.T) # Gradientes con respecto a la entrada
+        self.weights_grads = np.dot(self.forward_data.T, x_grad)
+        self.bias_grads = x_grad.sum(axis=0)
+        self.data_grads = np.dot(x_grad, self.weights.T)
 
         return self.data_grads
 
 class Conv2D(Layer):
     def __init__(self, filters: int, filter_size: int, input_shape: tuple[int, ...]=None, name: str='conv', activation: Activation=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros'):
         """
-        Constructor de una capa de red neuronal convolucional
+        Constructor de una capa convolucional 2D.
 
         :param filters: cantidad de filtros/neuronas en la capa.
         :param filter_size: tamaño del filtro
@@ -208,10 +213,10 @@ class Conv2D(Layer):
         :param activation: función de activación.
         :param stride: paso de la convolución. Por defecto 1
         :param padding: padding de la convolución. Por defecto 'valid'
-        :param weights:
-        :param bias:
-        :param weight_initializer:
-        :param bias_initializer: 
+        :param weights: pesos
+        :param bias: bias
+        :param weight_initializer: inicializador de pesos. Por defecto 'glorot_uniform'
+        :param bias_initializer: inicializador de bias. Por defecto 'zeros'
         """
         self.activation = activation
         self.filters = filters
@@ -228,7 +233,9 @@ class Conv2D(Layer):
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
-        Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
+        :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
         self.input_shape = input_shape
         if self.padding == 'valid': 
@@ -255,10 +262,10 @@ class Conv2D(Layer):
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia adelante
+        Realiza una propagación hacia adelante.
 
-        :param x: tensor de entrada
-        :return output: tensor de salida
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
         """
 
         self.forward_data = x # (batch_size, channels, height, width)
@@ -281,7 +288,7 @@ class Conv2D(Layer):
     
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia atrás
+        Realiza una propagación hacia atrás.
 
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
@@ -319,7 +326,7 @@ class Conv2D(Layer):
 class Pool2D(Layer):
     def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
         """
-        Constructor de una capa de red neuronal de max pooling
+        Constructor de una capa pooling 2D.
         
         :param pool_size: tamaño del pooling
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
@@ -334,21 +341,19 @@ class Pool2D(Layer):
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
-        Compila la capa. Inicializando sus parámetros y generando las dimensiones de salida de la capa
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
+        :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
         self.input_shape = input_shape
         if self.padding == 'valid': 
             self.padding = 0
 
-            # out_height = (input_shape[2] - self.pool_size) // self.stride + 1
-            # out_width = (input_shape[3] - self.pool_size) // self.stride + 1
         elif self.padding == 'same':
             output_size = math.ceil(input_shape[2] / self.stride)
             padd_total = max(0, (output_size - 1) * self.stride + self.pool_size - input_shape[2])
             self.padding = math.ceil(padd_total // 2)
 
-            # out_height = (input_shape[2] + 2 * self.padding - self.pool_size) // self.stride + 1
-            # out_width = (input_shape[3] + 2 * self.padding - self.pool_size) // self.stride + 1
         elif self.padding >= 0:
             self.padding = self.padding
         else:
@@ -358,16 +363,28 @@ class Pool2D(Layer):
 
         self.output_shape = (None, input_shape[1], out_height, out_width)
 
-    def __call__():
+    def __call__(x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante.
+
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
+        """
         raise NotImplementedError
     
-    def backward():
+    def backward(x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
         raise NotImplementedError
 
 class MaxPool2D(Pool2D):
     def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
         """
-        Constructor de una capa de red neuronal de max pooling
+        Constructor de una capa max pooling 2D.
         
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
         :param: name: nombre de la capa
@@ -379,10 +396,10 @@ class MaxPool2D(Pool2D):
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia adelante
+        Realiza una propagación hacia adelante.
 
-        :param x: tensor de entrada
-        :return output: tensor de salida
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
         """
         self.forward_data = x
         _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
@@ -390,8 +407,7 @@ class MaxPool2D(Pool2D):
         
         if self.padding:
             x = np.pad(x, ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)), mode='constant')
-        
-        # TODO: Entender implementación y funcionamiento de función.
+
         strided_x = np.lib.stride_tricks.as_strided(
             x,
             shape=(
@@ -420,7 +436,7 @@ class MaxPool2D(Pool2D):
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia atrás
+        Realiza una propagación hacia atrás.
 
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
@@ -455,7 +471,7 @@ class MaxPool2D(Pool2D):
 class MinPool2D(Pool2D):
     def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
         """
-        Constructor de una capa de red neuronal de max pooling
+        Constructor de una capa min pooling 2D.
         
         :param pool_size: tamaño del pooling
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
@@ -467,10 +483,10 @@ class MinPool2D(Pool2D):
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia adelante
+        Realiza una propagación hacia adelante.
 
-        :param x: tensor de entrada
-        :return output: tensor de salida
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
         """
         self.forward_data = x
         _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
@@ -507,7 +523,7 @@ class MinPool2D(Pool2D):
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia atrás
+        Realiza una propagación hacia atrás.
 
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
@@ -542,7 +558,7 @@ class MinPool2D(Pool2D):
 class AvgPool2D(Pool2D):
     def __init__(self, pool_size: int, input_shape: tuple[int, ...]=None, name: str='max_pooling', stride: int=None, padding: str='valid'):
         """
-        Constructor de una capa de red neuronal de max pooling
+        Constructor de una capa average pooling 2D.
         
         :param pool_size: tamaño del pooling
         :param input_shape: tupla con las dimensiones de entrada (channels, height, width)
@@ -554,10 +570,10 @@ class AvgPool2D(Pool2D):
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia adelante
+        Realiza una propagación hacia adelante.
 
-        :param x: tensor de entrada
-        :return output: tensor de salida
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
         """
         self.forward_data = x
         _, _, output_height, output_width = self.output_shape # (batches, channels, output_height, output_width)
@@ -594,7 +610,7 @@ class AvgPool2D(Pool2D):
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia atrás
+        Realiza una propagación hacia atrás.
 
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
@@ -616,6 +632,7 @@ class AvgPool2D(Pool2D):
                     self.data_grads[b, :, h_start:h_end, w_start:w_end] += avg_grad # Gradientes con respecto a la entrada
         return self.data_grads
     
+# EXPERIMENTAL
 class LSTM(Layer):
     def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', long_term_memory: np.array=None, short_term_memory: np.array=None) -> None:
         """
@@ -650,7 +667,9 @@ class LSTM(Layer):
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
-        Compila la capa. Inicializando sus parámetros
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
+        :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
         """
         self.input_shape = input_shape
         if self.return_sequences:
@@ -670,10 +689,10 @@ class LSTM(Layer):
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación hacia adelante
+        Realiza una propagación hacia adelante.
 
-        :param x: tensor de entrada
-        :return output: tensor de salida
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
         """
         batchets, timesteps, input_dim = x.shape # (batches, timesteps, input_dim)
         W_i, W_f, W_c, W_o = np.hsplit(self.weights, 4)
@@ -713,10 +732,18 @@ class LSTM(Layer):
             return out
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        
         pass
 
     def forget_gate(self, x: np.ndarray, w_forget: np.array, u_forget: np.array, bias: np.array):
         """
+        Realiza los calculos de la forget gate.
         
         :param x: tensor de entrada
         """
@@ -727,6 +754,7 @@ class LSTM(Layer):
 
     def input_gate(self, x: np.ndarray, w_input_1: np.array, u_input_1: np.array, bias_1: np.array, w_input_2: np.array, u_input_2: np.array, bias_2: np.array):
         """
+        Realiza los calculos de la input gate.
 
         :param x: tensor de entrada
         """
@@ -739,6 +767,7 @@ class LSTM(Layer):
     
     def output_gate(self, x: np.ndarray, w_output: np.array, u_output: np.array, bias: np.array):
         """
+        Realiza los calculos de la output gate.
 
         :param x: tensor de entrada
         """
@@ -748,7 +777,7 @@ class LSTM(Layer):
 
     def reset_states(self) -> None:
         """
-        Reinicia los estados de la capa
+        Reinicia los estados de la capa.
         """
-        self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros') # Inicializa memoria de largo plazo
         self.long_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros') # Inicializa memoria de corto plazo
+        self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros') # Inicializa memoria de largo plazo

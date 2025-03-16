@@ -5,6 +5,15 @@ from utils.helpers import one_hot_encoder
 
 
 def train_test_split(x, y, img_size, test_size=0.2, validation_size=0):
+    """
+    Divide los datos en train, test y validación.
+
+    :param x: matriz de entrada
+    :param y: matriz de salida
+    :param test_size: tamaño de la parte de prueba
+    :param validation_size: tamaño de la parte de validación
+    :return: lista de los subconjuntos de entrenamiento, prueba y validación (x_train, y_train, x_test, y_test, x_val, y_val)
+    """
 
     channels, height, width = img_size
 
@@ -52,6 +61,14 @@ def train_test_split(x, y, img_size, test_size=0.2, validation_size=0):
     
 
 def load_mnist(validation_size=0, data_dir='data', img_size=(1, 28, 28)):
+    """
+    Carga los datos de MNIST.
+
+    :param validation_size: tamaño de la parte de validación
+    :param data_dir: directorio donde se encuentran los datos
+    :param img_size: tamaño de la imagen
+    :return: lista de los subconjuntos de entrenamiento, prueba y validación (x_train, y_train, x_test, y_test, x_val, y_val)
+    """
     train_data = np.genfromtxt(f'{data_dir}/mnist_train.csv', delimiter=',', skip_header=1)
     test_data = np.genfromtxt(f'{data_dir}/mnist_test.csv', delimiter=',', skip_header=1)
     data = np.concatenate((train_data, test_data), axis=0)
@@ -62,6 +79,14 @@ def load_mnist(validation_size=0, data_dir='data', img_size=(1, 28, 28)):
 
 
 def load_cats_dogs(validation_size=0, data_dir='data/Animal Images', img_size=(1, 150, 150)):
+    """
+    Carga los datos de Cats vs Dogs.
+
+    :param validation_size: tamaño de la parte de validación
+    :param data_dir: directorio donde se encuentran los datos
+    :param img_size: tamaño de la imagen
+    :return: lista de los subconjuntos de entrenamiento, prueba y validación (x_train, y_train, x_test, y_test, x_val, y_val)
+    """
     x = []
     y = []
     class_names = os.listdir(data_dir)  # Cada carpeta es una clase

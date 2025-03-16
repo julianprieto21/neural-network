@@ -3,11 +3,12 @@ import numpy as np
 
 def initialize_parameters(shape: tuple[int, ...], distribution: str='normal', is_bias: bool=False) -> np.ndarray:
     """
-    Inicializa los parametros de una matriz con una distribución normal
+    Inicializa los parametros de una matriz con una distribución normal.
 
     :param shape: tupla de dimensiones de la matriz
-    :param name: nombre del peso
-    :return parameter: matriz con los parametros inicializados
+    :param distribution: tipo de distribución
+    :param is_bias: indica si se refiere a un bias
+    :return: matriz con los parametros inicializados
     """
     def get_fan_in_out(shape):
         if len(shape) == 4:
@@ -74,11 +75,11 @@ def initialize_parameters(shape: tuple[int, ...], distribution: str='normal', is
 
 def one_hot_encoder(y: np.ndarray, num_classes: int=None) -> np.ndarray:
     """
-    Codifica una matriz de etiquetas en una matriz de one-hot
+    Codifica una matriz de etiquetas en una matriz de one-hot.
 
     :param y: matriz de etiquetas
-    :param n_classes: cantidad de clases
-    :return y: matriz de one-hot
+    :param num_classes: cantidad de clases
+    :return: matriz de one-hot
     """
     y = np.array(y)
 

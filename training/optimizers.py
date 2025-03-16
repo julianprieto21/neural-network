@@ -1,9 +1,9 @@
 import numpy as np
 
 class Optimizer:
-    def __init__(self, learning_rate: float) -> None:
+    def __init__(self, learning_rate: float, epsilon: float=1e-8) -> None:
         """
-        Constructor de un optimizador
+        Constructor de un optimizador.
 
         :param learning_rate: tasa de aprendizaje. Por defecto 0.001
         :param momentum: valor del Momentum. Por defecto None
@@ -12,37 +12,38 @@ class Optimizer:
         :param epsilon: valor del epsilon. Por defecto 1e-8
         """
         self.learning_rate = learning_rate
-        self.epsilon = 1e-7
+        self.epsilon = epsilon
 
     def __call__(self, params: list[np.ndarray], grads: list[np.ndarray]) -> list[np.ndarray]:
         """
-        Actualiza los parámetros utilizando el método de optimización especificado
+        Actualiza los parámetros utilizando el método de optimización especificado.
 
-        :param params: lista de parámetros   
+        :param params: lista de parámetros
         :param grads: lista de gradientes
-        :return updated_params: lista de parámetros actualizados
+        :return: lista de parámetros actualizados
         """
         raise NotImplementedError
 
 class SGD(Optimizer):
-    def __init__(self, learning_rate: float=0.01, momentum: float=None) -> None:
+    def __init__(self, learning_rate: float=0.01, momentum: float=None, epsilon: float=1e-8) -> None:
         """
-        Constructor de un optimizador SGD
+        Constructor de un optimizador SGD.
 
         :param learning_rate: tasa de aprendizaje. Por defecto 0.001
         :param momentum: valor del Momentum. Por defecto None
+        :param epsilon: valor del epsilon. Por defecto 1e-8
         """
-        super().__init__(learning_rate=learning_rate)
+        super().__init__(learning_rate=learning_rate, epsilon=epsilon)
         self.momentum = momentum
         self.velocities = None
 
     def __call__(self, params: list[np.ndarray], grads: list[np.ndarray]) -> list[np.ndarray]:
         """
-        Actualiza los parámetros utilizando el método de optimización SGD
+        Actualiza los parámetros utilizando el método de optimización SGD.
 
-        :param params: lista de parámetros   
+        :param params: lista de parámetros
         :param grads: lista de gradientes
-        :return updated_params: lista de parámetros actualizados
+        :return: lista de parámetros actualizados
         """
         updated_params = []
         if self.velocities is None and self.momentum is not None:
@@ -59,16 +60,16 @@ class SGD(Optimizer):
         return updated_params
 
 class RMSprop(Optimizer):
-    def __init__(self, learning_rate: float=0.001, rho: float=0.9, momentum: float=None) -> None:
+    def __init__(self, learning_rate: float=0.001, rho: float=0.9, momentum: float=None, epsilon: float=1e-8) -> None:
         """
-        Constructor de un optimizador RMSprop
+        Constructor de un optimizador RMSprop.
 
         :param learning_rate: tasa de aprendizaje. Por defecto 0.001
-        :param beta1: valor del beta1. Por defecto 0.9
-        :param beta2: valor del beta2. Por defecto 0.999
+        :param rho: valor del beta1. Por defecto 0.9
+        :param momentum: valor del momentum. Por defecto None
         :param epsilon: valor del epsilon. Por defecto 1e-8
         """
-        super().__init__(learning_rate=learning_rate)
+        super().__init__(learning_rate=learning_rate, epsilon=epsilon)
         self.rho = rho
         self.momentum = momentum
         self.velocities = None
@@ -76,11 +77,11 @@ class RMSprop(Optimizer):
 
     def __call__(self, params: list[np.ndarray], grads: list[np.ndarray]) -> list[np.ndarray]:
         """
-        Actualiza los parámetros utilizando el método de optimización RMSprop
+        Actualiza los parámetros utilizando el método de optimización RMSprop.
 
-        :param params: lista de parámetros   
+        :param params: lista de parámetros
         :param grads: lista de gradientes
-        :return updated_params: lista de parámetros actualizados
+        :return: lista de parámetros actualizados
         """
         updated_params = []
         if self.velocities is None:
@@ -102,16 +103,16 @@ class RMSprop(Optimizer):
         return updated_params
 
 class Adam(Optimizer):
-    def __init__(self, learning_rate: float=0.001, beta1: float=0.9, beta2: float=0.999) -> None:
+    def __init__(self, learning_rate: float=0.001, beta1: float=0.9, beta2: float=0.999, epsilon: float=1e-8) -> None:
         """
-        Constructor de un optimizador Adam
+        Constructor de un optimizador Adam.
 
         :param learning_rate: tasa de aprendizaje. Por defecto 0.001
         :param beta1: valor del beta1. Por defecto 0.9
         :param beta2: valor del beta2. Por defecto 0.999
         :param epsilon: valor del epsilon. Por defecto 1e-8
         """
-        super().__init__(learning_rate=learning_rate)
+        super().__init__(learning_rate=learning_rate, epsilon=epsilon)
         self.beta1 = beta1
         self.beta2 = beta2
         self.iteration = 0
@@ -120,11 +121,11 @@ class Adam(Optimizer):
 
     def __call__(self, params, grads):
         """
-        Actualiza los parámetros utilizando el método de optimización Adam
+        Actualiza los parámetros utilizando el método de optimización Adam.
 
-        :param params: lista de parámetros   
+        :param params: lista de parámetros
         :param grads: lista de gradientes
-        :return updated_params: lista de parámetros actualizados
+        :return: lista de parámetros actualizados
         """
         updated_params = []
         if self.velocities is None:

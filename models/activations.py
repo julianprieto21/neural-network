@@ -3,7 +3,7 @@ import numpy as np
 class Activation:
     def __init__(self, name: str) -> None:
         """
-        Constructor de una función de activación
+        Constructor de una función de activación.
 
         :param name: nombre de la función de activación
         """
@@ -12,7 +12,7 @@ class Activation:
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la función de activación
+        Realiza una propagación de la función de activación.
 
         :param x: matriz de entrada
         :return: matriz de salida de la función de activación
@@ -21,7 +21,7 @@ class Activation:
     
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la derivada de la función de activación
+        Realiza una propagación de la derivada de la función de activación.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
@@ -31,14 +31,14 @@ class Activation:
 class ReLU(Activation):
     def __init__(self) -> None:
         """
-        Constructor de una función de activación ReLU
+        Constructor de una función de activación ReLU.
         """
 
         super().__init__('relu')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la función de activación ReLU
+        Realiza una propagación de la función de activación ReLU.
 
         :param x: matriz de entrada
         :return: matriz de salida de la función de activación ReLU
@@ -49,7 +49,7 @@ class ReLU(Activation):
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la derivada de la función de activación ReLU
+        Realiza una propagación de la derivada de la función de activación ReLU.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
@@ -60,13 +60,13 @@ class ReLU(Activation):
 class Softmax(Activation):
     def __init__(self) -> None:
         """
-        Constructor de una función de activación Softmax
+        Constructor de una función de activación Softmax.
         """
         super().__init__('softmax')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la función de activación Softmax
+        Realiza una propagación de la función de activación Softmax.
 
         :param x: matriz de entrada
         :return: matriz de salida de la función de activación Softmax
@@ -77,7 +77,7 @@ class Softmax(Activation):
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la derivada de la función de activación Softmax
+        Realiza una propagación de la derivada de la función de activación Softmax.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
@@ -87,13 +87,13 @@ class Softmax(Activation):
 class Sigmoid(Activation):
     def __init__(self) -> None:
         """
-        Constructor de una función de activación Sigmoid
+        Constructor de una función de activación Sigmoid.
         """
         super().__init__('sigmoid')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la función de activación Sigmoid
+        Realiza una propagación de la función de activación Sigmoid.
 
         :param x: matriz de entrada
         :return: matriz de salida de la función de activación Sigmoid
@@ -104,7 +104,7 @@ class Sigmoid(Activation):
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la derivada de la función de activación Sigmoid
+        Realiza una propagación de la derivada de la función de activación Sigmoid.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
@@ -115,13 +115,13 @@ class Sigmoid(Activation):
 class Tanh(Activation):
     def __init__(self) -> None:
         """
-        Constructor de una función de activación Tanh
+        Constructor de una función de activación Tanh.
         """
         super().__init__('tanh')
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la función de activación Tanh
+        Realiza una propagación de la función de activación Tanh.
 
         :param x: matriz de entrada
         :return: matriz de salida de la función de activación Tanh
@@ -132,7 +132,7 @@ class Tanh(Activation):
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
-        Realiza una propagación de la derivada de la función de activación Tanh
+        Realiza una propagación de la derivada de la función de activación Tanh.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
