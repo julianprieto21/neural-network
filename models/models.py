@@ -1,3 +1,4 @@
+from typing import Callable
 import numpy as np
 from training.optimizers import Optimizer
 from .layers import Layer, Conv2D, Pool2D
@@ -7,7 +8,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 class NeuralNetwork:
-    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: function, verbose: bool=False) -> None:
+    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: Callable[[np.ndarray, np.ndarray], float], verbose: bool=False) -> None:
         """
         Constructor de un modelo de red neuronal.
 
@@ -157,7 +158,7 @@ class NeuralNetwork:
                 self.params[i] = param
 
 class ConvolutionalNeuralNetwork(NeuralNetwork):
-    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: function, verbose: bool=False) -> None:
+    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: Callable[[np.ndarray, np.ndarray], float], verbose: bool=False) -> None:
         """
         Constructor de un modelo de red neuronal.
 
@@ -305,7 +306,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
 
 # EXPERIMENTAL
 class RecurrentNeuralNetwork(NeuralNetwork):
-    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: function, verbose: bool=False) -> None:
+    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: Callable[[np.ndarray, np.ndarray], float], verbose: bool=False) -> None:
         """
         Constructor de un modelo de red neuronal.
 
