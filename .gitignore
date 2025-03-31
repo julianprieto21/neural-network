@@ -36,7 +36,6 @@ htmlcov/
 
 # Archivos de Jupyter Notebook checkpoints
 .ipynb_checkpoints/
-*.ipynb
 
 # Archivos generados por build
 build/
