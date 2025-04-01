@@ -293,6 +293,63 @@ class Conv2D(Layer):
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
         """
+        x_grad = self.activation.backward(x_grad) if self.activation else x_grad
+    
+        x = np.pad(self.forward_data, ((0,0),(0,0),(self.padding,)*2,(self.padding,)*2)) if self.padding else self.forward_data
+        batch_size, _, output_h, output_w = x_grad.shape
+        _, channels, input_h, input_w = self.forward_data.shape
+        
+        self.bias_grads = x_grad.sum(axis=(0, 2, 3)) # Gradiente de los biases
+        
+        x_windows = np.lib.stride_tricks.as_strided( # Crear ventanas de entrada
+            x,
+            shape=(batch_size, channels, output_h, output_w, self.filter_size, self.filter_size),
+            strides=(x.strides[0], x.strides[1], 
+                    x.strides[2]*self.stride, x.strides[3]*self.stride,
+                    x.strides[2], x.strides[3])
+        )
+        
+        self.weights_grads = np.tensordot( # Gradientes de pesos
+            x_windows,
+            x_grad,
+            axes=[(0, 2, 3), (0, 2, 3)]
+        ).transpose(1, 2, 0, 3)  # Ajustar dimensiones
+        
+        pad = self.filter_size - 1
+        x_grad_padded = np.pad(x_grad, ((0,0),(0,0),(pad,)*2,(pad,)*2)) # Preparar padding para convolución transpuesta
+        
+        rot_weights = np.rot90(self.weights, 2, axes=(0,1)) # Rotar pesos 180° para convolución transpuesta
+
+        grad_windows = np.lib.stride_tricks.as_strided( # Ventanas del gradiente de salida
+            x_grad_padded,
+            shape=(batch_size, self.weights.shape[3], input_h + 2*self.padding, input_w + 2*self.padding, self.filter_size, self.filter_size),
+            strides=(x_grad_padded.strides[0], x_grad_padded.strides[1],
+                    x_grad_padded.strides[2], x_grad_padded.strides[3],
+                    x_grad_padded.strides[2], x_grad_padded.strides[3])
+        )
+        
+        self.data_grads = np.tensordot( # Gradientes de entrada
+            grad_windows,
+            rot_weights,
+            axes=[(1, 4, 5), (3, 0, 1)]
+        ).transpose(0, 3, 1, 2)
+        
+        if self.padding: # Remover padding si es necesario
+            self.data_grads = self.data_grads[
+                :, :, 
+                self.padding:self.padding + input_h, 
+                self.padding:self.padding + input_w
+            ]
+        
+        return self.data_grads
+    
+    def backward_deprecated(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás sin optimización (Primer implementación). Mas lenta que backward.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
         batch_size, _, output_height, output_width = x_grad.shape # (batch_size, filters, output_height, output_width)
         _, _, input_height, input_width = self.forward_data.shape
         x_grad = self.activation.backward(x_grad) if self.activation else x_grad
@@ -441,6 +498,52 @@ class MaxPool2D(Pool2D):
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
         """
+        x = self.forward_data  # (batches, channels, height, width)
+        batches, channels, height, width = x.shape
+        pool_h, pool_w = self.pool_size, self.pool_size
+        stride_h, stride_w = self.stride, self.stride
+
+        output_height = (height - pool_h) // stride_h + 1
+        output_width = (width - pool_w) // stride_w + 1
+
+        new_shape = (batches, channels, output_height, output_width, pool_h, pool_w)
+        strides = (
+            x.strides[0],
+            x.strides[1],
+            x.strides[2] * stride_h,
+            x.strides[3] * stride_w,
+            x.strides[2],
+            x.strides[3]
+        )
+        windows = np.lib.stride_tricks.as_strided(x, shape=new_shape, strides=strides) # Ventanas
+
+        flattened = windows.reshape(*new_shape[:-2], -1) # Aplanar ventanas
+        max_indices = flattened.argmax(axis=-1) # Obtener índices de posiciones máximas
+        
+        mask_flat = np.zeros(flattened.shape, dtype=bool)
+        np.put_along_axis(mask_flat, max_indices[..., None], True, -1)
+        mask = mask_flat.reshape(windows.shape) # Máscara con los primeros máximos
+
+        b_idx, c_idx, oh_idx, ow_idx, ph_idx, pw_idx = np.nonzero(mask)
+        h_coords = oh_idx * stride_h + ph_idx
+        w_coords = ow_idx * stride_w + pw_idx
+
+        self.data_grads = np.zeros_like(x) # Acumular gradientes usando numpy.add.at
+        np.add.at(
+            self.data_grads,
+            (b_idx, c_idx, h_coords, w_coords),
+            x_grad[b_idx, c_idx, oh_idx, ow_idx]
+        )
+
+        return self.data_grads
+    
+    def backward_deprecated(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
         x = self.forward_data # (batches, channels, height, width)
         self.data_grads = np.zeros(x.shape) # (batches, channels, height, width)
         pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
@@ -528,6 +631,52 @@ class MinPool2D(Pool2D):
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
         """
+        x = self.forward_data  # (batches, channels, height, width)
+        batches, channels, height, width = x.shape
+        pool_h, pool_w = self.pool_size, self.pool_size
+        stride_h, stride_w = self.stride, self.stride
+
+        output_height = (height - pool_h) // stride_h + 1
+        output_width = (width - pool_w) // stride_w + 1
+
+        new_shape = (batches, channels, output_height, output_width, pool_h, pool_w)
+        strides = (
+            x.strides[0],
+            x.strides[1],
+            x.strides[2] * stride_h,
+            x.strides[3] * stride_w,
+            x.strides[2],
+            x.strides[3]
+        )
+        windows = np.lib.stride_tricks.as_strided(x, shape=new_shape, strides=strides) # Ventanas
+
+        flattened = windows.reshape(*new_shape[:-2], -1) # Aplanar ventanas
+        min_indices = flattened.argmin(axis=-1) # Obtener índices de posiciones mínimas
+        
+        mask_flat = np.zeros(flattened.shape, dtype=bool)
+        np.put_along_axis(mask_flat, min_indices[..., None], True, -1)
+        mask = mask_flat.reshape(windows.shape) # Máscara con los primeros mínimos
+
+        b_idx, c_idx, oh_idx, ow_idx, ph_idx, pw_idx = np.nonzero(mask)
+        h_coords = oh_idx * stride_h + ph_idx
+        w_coords = ow_idx * stride_w + pw_idx
+
+        self.data_grads = np.zeros_like(x) # Acumular gradientes usando numpy.add.at
+        np.add.at(
+            self.data_grads,
+            (b_idx, c_idx, h_coords, w_coords),
+            x_grad[b_idx, c_idx, oh_idx, ow_idx]
+        )
+
+        return self.data_grads
+
+    def backward_deprecated(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás sin optimización (Primer implementación). Mas lenta que backward.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
         x = self.forward_data # (batches, channels, height, width)
         self.data_grads = np.zeros(x.shape) # (batches, channels, height, width)
         pool_h, pool_w = self.pool_size, self.pool_size # Tamaño del pooling
@@ -611,6 +760,43 @@ class AvgPool2D(Pool2D):
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
         Realiza una propagación hacia atrás.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        x = self.forward_data  # (batches, channels, height, width)
+        batches, channels, height, width = x.shape
+        pool_h, pool_w = self.pool_size, self.pool_size
+        stride_h, stride_w = self.stride, self.stride
+        pool_area = pool_h * pool_w
+
+        output_height = (height - pool_h) // stride_h + 1
+        output_width = (width - pool_w) // stride_w + 1
+
+        new_shape = (batches, channels, output_height, output_width, pool_h, pool_w)
+
+        scaled_grad = x_grad[..., np.newaxis, np.newaxis] / pool_area
+        scaled_grad_expanded = np.broadcast_to(scaled_grad, new_shape) # Calcular gradientes escalados
+
+        b_idx, c_idx, oh_idx, ow_idx, ph_idx, pw_idx = np.indices(new_shape)
+        h_coords = oh_idx * stride_h + ph_idx
+        w_coords = ow_idx * stride_w + pw_idx
+
+        # Aplanar índices y gradientes
+        b_flat = b_idx.ravel()
+        c_flat = c_idx.ravel()
+        h_flat = h_coords.ravel()
+        w_flat = w_coords.ravel()
+        grad_flat = scaled_grad_expanded.ravel()
+
+        self.data_grads = np.zeros_like(x)
+        np.add.at(self.data_grads, (b_flat, c_flat, h_flat, w_flat), grad_flat) # Acumular gradientes
+
+        return self.data_grads
+
+    def backward_deprecated(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás sin optimización (Primer implementación). Mas lenta que backward.
 
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
