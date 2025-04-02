@@ -46,7 +46,7 @@ class NeuralNetwork:
                 print(f'- {layer.name}: {layer.__class__.__name__} - {layer.output_shape}')
         print(f'Optimizador: {self.optimizer.__class__.__name__} - Learning rate: {self.optimizer.learning_rate}')
         print(f'Función de pérdida: {self.loss.__class__.__name__}')        
-        print(f'Función de cálculo de métricas: {self.metrics.__name__}')
+        print(f'Función de cálculo de métricas: {self.metrics.__name__.capitalize()}')
         print(f'Cantidad de parámetros: {parameters}')
     
     def compile(self) -> None:
