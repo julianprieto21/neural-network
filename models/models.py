@@ -171,7 +171,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         """
         super().__init__(input_shape, layers, optimizer, loss, metrics, verbose)
 
-    def train(self, train_data: np.ndarray, train_labels: np.ndarray, validation_data: tuple[np.ndarray, np.ndarray]=(None, None), epochs: int=10, batch_size: int=32) -> None:
+    def train(self, train_data: np.ndarray, train_labels: np.ndarray, validation_data: tuple[np.ndarray, np.ndarray]=(None, None), epochs: int=10, batch_size: int=32) -> dict[str, dict[str, list[float]]]:
         """
         Entrena el modelo de red neuronal.
 
@@ -231,7 +231,7 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
         preds = self(test_data)
         return preds if probs else np.argmax(preds, axis=0)
     
-    def evaluate(self, test_data: np.ndarray, test_labels: np.ndarray) -> float:
+    def evaluate(self, test_data: np.ndarray, test_labels: np.ndarray) -> tuple[float, float]:
         """
         Realiza una evaluación sobre el modelo de red neuronal para un lote de datos de prueba.
 
