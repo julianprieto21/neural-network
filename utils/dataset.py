@@ -105,3 +105,18 @@ def load_cats_dogs(validation_size=0, data_dir='data/Animal Images', img_size=(1
                 except Exception as e:
                     print(f"Error al cargar {img_path}: {e}")
     return train_test_split(np.array(x), np.array(y), img_size=img_size, test_size=0.2, validation_size=validation_size)
+
+def load_signs(validation_size=0, data_dir='data', img_size=(1, 56, 56)):
+    """
+    Carga los datos de lenguaje de señas.
+
+    :param validation_size: tamaño de la parte de validación
+    :param data_dir: directorio donde se encuentran los datos
+    :param img_size: tamaño de la imagen
+    :return: lista de los subconjuntos de entrenamiento, prueba y validación (x_train, y_train, x_test, y_test, x_val, y_val)
+    """
+    data = np.genfromtxt(f'{data_dir}/sign_mnist.csv', delimiter=',', skip_header=1)
+    x = data[:, 1:]
+    y = data[:, 0]
+
+    return train_test_split(x, y, img_size=img_size, test_size=0.2, validation_size=validation_size)
