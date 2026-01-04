@@ -263,6 +263,8 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
 
         layers = self.layers
         last_conv_layer = [layer for layer in layers if isinstance(layer, Conv2D)][-1]
+        if last_conv_layer is None:
+            raise ValueError("El modelo no contiene una capa Convolucional 2D.")
         for layer in layers:
             x = layer(x)
             if layer == last_conv_layer: break
