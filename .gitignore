@@ -1,5 +1,5 @@
 # Archivos y carpetas de entornos virtuales
-venv/
+.venv/
 .env/
 *.pyc
 __pycache__/
@@ -27,6 +27,7 @@ utils/__pycache__/
 .coverage
 coverage.xml
 htmlcov/
+.pytest_cache/
 
 # Archivos de configuración de entornos
 .envrc
