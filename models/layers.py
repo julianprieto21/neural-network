@@ -817,39 +817,100 @@ class AvgPool2D(Pool2D):
                     avg_grad = grad / (pool_h * pool_w) # Gradiente promedio
                     self.data_grads[b, :, h_start:h_end, w_start:w_end] += avg_grad # Gradientes con respecto a la entrada
         return self.data_grads
-    
-# EXPERIMENTAL
-class LSTM(Layer):
-    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', long_term_memory: np.array=None, short_term_memory: np.array=None) -> None:
+
+class RecurrentLayer(Layer):
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='recurrent_layer', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None) -> None:
         """
-        Constructor de una capa LSTM
+        Constructor de una capa RNN simple
 
         :param units: cantidad de unidades
-        :param return_sequences: indica si se debe devolver una secuencia de salidas
         :param input_shape: forma de la entrada
         :param name: nombre de la capa
-        :param weights: pesos
-        :param bias: bias
+        :param activation: función de activación
+        :param recurrent_activation: función de activación recurrente
+        :param return_sequences: indica si se debe devolver una secuencia de salidas
+        :param return_state: indica si se debe devolver el estado de la capa
+        :param weights: pesos de la capa
+        :param recurrent_weights: pesos recurrentes de la capa
+        :param bias: bias de la capa
         :param weight_initializer: inicializador de pesos
+        :param recurrent_weight_initializer: inicializador de pesos recurrentes
         :param bias_initializer: inicializador de bias
-        :param long_term_memory: memoria de largo plazo
         :param short_term_memory: memoria de corto plazo
         """
+        self.activation = activation
+        self.recurrent_activation = recurrent_activation
         self.units = units
         self.return_sequences = return_sequences
         self.return_state = return_state
-        self.unit_forget_bias = unit_forget_bias
         self.weights = weights
         self.recurrent_weights = recurrent_weights
         self.bias = bias
+        self.weights_grads = None
+        self.recurrent_weights_grads = None
+        self.bias_grads = None
         self.weights_initializer = weight_initializer
-        self.weights_initializer_recurrent = weight_initializer_recurrent
+        self.recurrent_weight_initializer = recurrent_weight_initializer
         self.bias_initializer = bias_initializer
-        self.long_term_memory = long_term_memory
         self.short_term_memory = short_term_memory
-        self.sigmoid = Sigmoid()
-        self.tanh = Tanh()
+        self.hist_states = []
         super().__init__(input_shape=input_shape, name=name)
+
+    def compile(self, input_shape: tuple[int, ...]=None) -> None:
+        """
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
+        :param input_shape: tupla con las dimensiones de entrada (batches, timesteps, input_dim)
+        """
+        raise NotImplementedError
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante.
+
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
+        """
+        raise NotImplementedError
+
+    def backward(self, grad_x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        raise NotImplementedError
+
+    def reset_states(self) -> None:
+        """
+        Reinicia los estados de la capa.
+        """
+        batch_size = self.short_term_memory.shape[0] if self.short_term_memory is not None else 1
+        if self.short_term_memory is not None:
+            self.long_term_memory = initialize_parameters(shape=(batch_size, self.units), distribution='zeros') # Inicializa memoria de largo plazo
+        self.short_term_memory = initialize_parameters(shape=(batch_size, self.units), distribution='zeros') # Inicializa memoria de corto plazo
+
+class SimpleRNN(RecurrentLayer):
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='simple_rnn', activation: Activation=Tanh(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None) -> None:
+        """
+        Constructor de una capa RNN simple
+
+        :param units: cantidad de unidades
+        :param input_shape: forma de la entrada
+        :param name: nombre de la capa
+        :param activation: función de activación
+        :param return_sequences: indica si se debe devolver una secuencia de salidas
+        :param return_state: indica si se debe devolver el estado de la capa
+        :param weights: pesos de la capa
+        :param recurrent_weights: pesos recurrentes de la capa
+        :param bias: bias de la capa
+        :param weight_initializer: inicializador de pesos
+        :param recurrent_weight_initializer: inicializador de pesos recurrentes
+        :param bias_initializer: inicializador de bias
+        :param short_term_memory: memoria de corto plazo
+        """
+        super().__init__(units=units, input_shape=input_shape, name=name, activation=activation, return_sequences=return_sequences, return_state=return_state, weights=weights, recurrent_weights=recurrent_weights, bias=bias, weight_initializer=weight_initializer, recurrent_weight_initializer=recurrent_weight_initializer, bias_initializer=bias_initializer, short_term_memory=short_term_memory)
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
         """
@@ -862,10 +923,257 @@ class LSTM(Layer):
             self.output_shape = (None, input_shape[1], self.units)
         else:
             self.output_shape = (None, self.units)
-        if self.short_term_memory is None:
-            self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
-        if self.long_term_memory is None:
-            self.long_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
+        if self.weights is None:
+            self.weights = initialize_parameters(shape=(input_shape[-1], self.units), distribution=self.weights_initializer)
+        if self.recurrent_weights is None:
+            self.recurrent_weights = initialize_parameters(shape=(self.units, self.units), distribution=self.recurrent_weight_initializer)
+        if self.bias is None:
+            self.bias = initialize_parameters(shape=(self.units), distribution=self.bias_initializer, is_bias=True)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante.
+
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
+        """
+        self.forward_data = x
+        batch_size, timesteps, _ = x.shape # (batches, timesteps, input_dim)
+
+        self.short_term_memory = np.zeros((batch_size, self.units))
+        self.hist_states = [self.short_term_memory]
+        outputs = []
+
+        # self.reset_states()
+        for t in range(timesteps):
+            xt = x[:, t]
+            z = xt @ self.weights + self.short_term_memory @ self.recurrent_weights + self.bias
+
+            self.short_term_memory = self.activation(z)
+            self.hist_states.append(self.short_term_memory.copy())
+            outputs.append(self.short_term_memory)
+
+
+        # outputs = np.array([outputs])
+        outputs = np.stack(outputs, axis=1) # (batch, timesteps, units)
+        if self.return_sequences:
+            # out = outputs.reshape(batch_size, self.output_shape[1], self.output_shape[2])
+            out = outputs
+            if self.return_state:
+                return out, self.short_term_memory
+            return out
+        else:
+            # out = outputs[-1, -1, :]
+            out = outputs[:, -1, :]
+            if self.return_state:
+                return out, self.short_term_memory
+            return out
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        batch_size, timesteps, _ = self.forward_data.shape # (batches, timesteps, input_dim)
+
+        if self.return_sequences:
+            dY_list = [x_grad[:, t, :] for t in range(timesteps)]
+        else:
+            # sólo hay gradiente en el último paso
+            dY_list = [np.zeros((batch_size, self.units)) for _ in range(timesteps)]
+            dY_list[-1] = x_grad
+
+        self.weights_grads = np.zeros_like(self.weights)
+        self.recurrent_weights_grads = np.zeros_like(self.recurrent_weights)
+        self.bias_grads = np.zeros_like(self.bias)
+
+        dh_next = np.zeros((batch_size, self.units))
+        self.data_grads = [None] * timesteps # Inicializar lista de gradientes de entrada
+
+        for t in reversed(range(timesteps)):
+            dxt = dY_list[t]
+            dz = dxt + dh_next
+            h_t = self.hist_states[t + 1]
+
+            saved_fd = self.activation.forward_data
+            self.activation.forward_data = h_t
+            d_pre = self.activation.backward(dz)
+            self.activation.forward_data = saved_fd
+            
+            self.weights_grads += self.forward_data[:, t, :].T @ d_pre#[:, t, :]
+            h_prev = self.hist_states[t]# if t > 0 else np.zeros_like(d_pre)
+            self.recurrent_weights_grads += h_prev.T @ d_pre#[:, t, :]
+            self.bias_grads += np.sum(d_pre, axis=0)
+
+            dh_next = d_pre @ self.recurrent_weights.T
+            self.data_grads[t] = d_pre @ self.weights.T # Gradientes de la entrada
+
+        self.data_grads = np.stack(self.data_grads, axis=1) # Apilar gradientes de la entrada
+        
+        return self.data_grads
+        
+class GRU(RecurrentLayer):
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='gru', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, reset_after: bool=True) -> None:
+        """
+        Constructor de una capa GRU (Gated Recurrent Unit)
+
+        :param units: cantidad de unidades
+        :param input_shape: forma de la entrada
+        :param name: nombre de la capa
+        :param activation: función de activación
+        :param recurrent_activation: función de activación recurrente
+        :param return_sequences: indica si se debe devolver una secuencia de salidas
+        :param return_state: indica si se debe devolver el estado de la capa
+        :param weights: pesos de la capa
+        :param recurrent_weights: pesos recurrentes de la capa
+        :param bias: bias de la capa
+        :param weight_initializer: inicializador de pesos
+        :param recurrent_weight_initializer: inicializador de pesos recurrentes
+        :param bias_initializer: inicializador de bias
+        :param short_term_memory: memoria de corto plazo
+        :param reset_after: indica si aplicar el reset gate después de la multiplicación con los pesos recurrentes
+        """
+        self.reset_after = reset_after
+        self.z_list = []
+        self.r_list = []
+        self.h_tilde_list = []
+        super().__init__(units=units, input_shape=input_shape, name=name, activation=activation, recurrent_activation=recurrent_activation, return_sequences=return_sequences, return_state=return_state, weights=weights, recurrent_weights=recurrent_weights, bias=bias, weight_initializer=weight_initializer, recurrent_weight_initializer=recurrent_weight_initializer, bias_initializer=bias_initializer, short_term_memory=short_term_memory)
+    
+    def compile(self, input_shape: tuple[int, ...]=None) -> None:
+        """
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
+        :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
+        """
+        self.input_shape = input_shape
+        if self.return_sequences:
+            self.output_shape = (None, input_shape[1], self.units)
+        else:
+            self.output_shape = (None, self.units)
+        if self.weights is None:
+            self.weights = initialize_parameters(shape=(input_shape[-1], 3 * self.units), distribution=self.weights_initializer)
+        if self.recurrent_weights is None:
+            self.recurrent_weights = initialize_parameters(shape=(self.units, 3 * self.units), distribution=self.recurrent_weight_initializer)
+        if self.bias is None:
+            if self.reset_after:
+                self.bias = initialize_parameters(shape=(2, 3 * self.units), distribution=self.bias_initializer, is_bias=True)
+            else:
+                self.bias = initialize_parameters(shape=(3 * self.units), distribution=self.bias_initializer, is_bias=True)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia adelante.
+
+        :param x: matriz de entrada
+        :return: matriz de salida de la capa
+        """
+        self.forward_data = x
+        batch_size, timesteps, _ = x.shape # (batches, timesteps, input_dim)
+
+        W_z, W_r, W_h = np.hsplit(self.weights, 3)
+        U_z, U_r, U_h = np.hsplit(self.recurrent_weights, 3)
+
+        if self.reset_after:
+            b_in = self.bias[0]
+            b_rec = self.bias[1]
+            b_z = b_in[:self.units] + b_rec[:self.units]
+            b_r = b_in[self.units:2*self.units] + b_rec[self.units:2*self.units]
+            b_h = b_in[2*self.units:] + b_rec[2*self.units:]
+        else:
+            b_z, b_r, b_h = np.split(self.bias, 3)
+
+        self.short_term_memory = np.zeros((batch_size, self.units))
+        self.hist_states = [self.short_term_memory]
+        outputs = []
+
+        for t in range(timesteps):
+            xt = x[:, t]
+            h_prev = self.short_term_memory
+
+            # Update gate
+            z = self.recurrent_activation(xt @ W_z + h_prev @ U_z + b_z)
+            # Reset gate
+            r = self.recurrent_activation(xt @ W_r + h_prev @ U_r + b_r)
+            # Candidato
+            if self.reset_after:
+                h_tilde = self.activation(xt @ W_h + r * (h_prev @ U_h) + b_h)
+            else:
+                h_tilde = self.activation(xt @ W_h + (r * h_prev) @ U_h + b_h)
+            
+            self.short_term_memory = z * h_prev + (1 - z) * h_tilde
+
+            outputs.append(self.short_term_memory)
+            self.z_list.append(z)
+            self.r_list.append(r)
+            self.hist_states.append(self.short_term_memory.copy())
+            self.h_tilde_list.append(h_tilde)
+        
+        outputs = np.stack(outputs, axis=1) # (batch, timesteps, units)
+        if self.return_sequences:
+            out = outputs.reshape(batch_size, self.output_shape[1], self.output_shape[2])
+            if self.return_state:
+                return out, self.short_term_memory
+            return out
+        else:
+            out = outputs[:, -1, :]
+            if self.return_state:
+                return out, self.short_term_memory
+            return out
+
+
+    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+        """
+        Realiza una propagación hacia atrás.
+
+        :param x_grad: gradientes de la propagación hacia adelante
+        :return: gradientes de la propagación hacia atrás
+        """
+        return NotImplementedError
+
+class LSTM(RecurrentLayer):
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, long_term_memory: np.array=None) -> None:
+        """
+        Constructor de una capa LSTM
+
+        :param units: cantidad de unidades
+        :param input_shape: forma de la entrada
+        :param name: nombre de la capa
+        :param activation: función de activación
+        :param recurrent_activation: función de activación recurrente
+        :param return_sequences: indica si se debe devolver una secuencia de salidas
+        :param return_state: indica si se debe devolver el estado de la capa
+        :param unit_forget_bias: indica si se debe incluir bias para el unit_forget_bias
+        :param weights: pesos de la capa
+        :param recurrent_weights: pesos recurrentes de la capa
+        :param bias: bias de la capa
+        :param weight_initializer: inicializador de pesos
+        :param recurrent_weight_initializer: inicializador de pesos recurrentes
+        :param bias_initializer: inicializador de bias
+        :param short_term_memory: memoria de corto plazo
+        :param long_term_memory: memoria de largo plazo
+        """
+        self.unit_forget_bias = unit_forget_bias
+        self.long_term_memory = long_term_memory
+        super().__init__(units=units, input_shape=input_shape, name=name, activation=activation, recurrent_activation=recurrent_activation, return_sequences=return_sequences, return_state=return_state, weights=weights, recurrent_weights=recurrent_weights, bias=bias, weight_initializer=weight_initializer, weight_initializer_recurrent=weight_initializer_recurrent, bias_initializer=bias_initializer, short_term_memory=short_term_memory)
+
+
+    def compile(self, input_shape: tuple[int, ...]=None) -> None:
+        """
+        Compila la capa, inicializando sus parámetros y generando las dimensiones de salida de la capa.
+
+        :param input_shape: tupla con las dimensiones de entrada (batches, channels, height, width)
+        """
+        self.input_shape = input_shape
+        if self.return_sequences:
+            self.output_shape = (None, input_shape[1], self.units)
+        else:
+            self.output_shape = (None, self.units)
+        # if self.long_term_memory is None:
+        #     self.long_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
+        # if self.short_term_memory is None:
+        #     self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
         if self.weights is None:
             self.weights = initialize_parameters(shape=(input_shape[-1], 4 * self.units), distribution=self.weights_initializer)
         if self.recurrent_weights is None:
@@ -880,7 +1188,8 @@ class LSTM(Layer):
         :param x: matriz de entrada
         :return: matriz de salida de la capa
         """
-        batchets, timesteps, input_dim = x.shape # (batches, timesteps, input_dim)
+        self.forward_data = x
+        batchets, timesteps, _ = x.shape # (batches, timesteps, input_dim)
         W_i, W_f, W_c, W_o = np.hsplit(self.weights, 4)
         U_i, U_f, U_c, U_o = np.hsplit(self.recurrent_weights, 4)
         b_i, b_f, b_c, b_o = np.split(self.bias, 4)
@@ -924,18 +1233,20 @@ class LSTM(Layer):
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
         """
-        
-        pass
+        return NotImplementedError
 
     def forget_gate(self, x: np.ndarray, w_forget: np.array, u_forget: np.array, bias: np.array):
         """
         Realiza los calculos de la forget gate.
         
         :param x: tensor de entrada
+        :param w_forget: pesos de la forget gate
+        :param u_forget: pesos recurrentes de la forget gate
+        :param bias: bias de la forget gate
         """
         bias = bias + 1 if self.unit_forget_bias else bias
         z = (np.dot(x, w_forget) + np.dot(self.short_term_memory, u_forget)) + bias
-        forget_factor = self.sigmoid(z)
+        forget_factor = self.recurrent_activation(z)
         self.long_term_memory *= forget_factor
 
     def input_gate(self, x: np.ndarray, w_input_1: np.array, u_input_1: np.array, bias_1: np.array, w_input_2: np.array, u_input_2: np.array, bias_2: np.array):
@@ -947,8 +1258,8 @@ class LSTM(Layer):
         z_input = np.dot(x, w_input_1) + np.dot(self.short_term_memory, u_input_1) + bias_1
         z_candidate = np.dot(x, w_input_2) + np.dot(self.short_term_memory, u_input_2) + bias_2
 
-        input_factor = self.sigmoid(z_input)
-        candidate_factor = self.tanh(z_candidate)
+        input_factor = self.recurrent_activation(z_input)
+        candidate_factor = self.activation(z_candidate)
         self.long_term_memory += input_factor * candidate_factor # Suma de memoria
     
     def output_gate(self, x: np.ndarray, w_output: np.array, u_output: np.array, bias: np.array):
@@ -958,12 +1269,5 @@ class LSTM(Layer):
         :param x: tensor de entrada
         """
         z = np.dot(x, w_output) + np.dot(self.short_term_memory, u_output) + bias
-        output_factor = self.sigmoid(z)
-        self.short_term_memory = output_factor * self.tanh(self.long_term_memory) # Suma de memoria
-
-    def reset_states(self) -> None:
-        """
-        Reinicia los estados de la capa.
-        """
-        self.long_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros') # Inicializa memoria de corto plazo
-        self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros') # Inicializa memoria de largo plazo
+        output_factor = self.recurrent_activation(z)
+        self.short_term_memory = output_factor * self.activation(self.long_term_memory) # Suma de memoria
