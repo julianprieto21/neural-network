@@ -47,15 +47,16 @@ class ReLU(Activation):
         self.forward_data = x
         return np.maximum(x, np.array(0.0, x.dtype))
 
-    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+    def backward(self, x_grad: np.ndarray, x: np.ndarray=None) -> np.ndarray:
         """
         Realiza una propagación de la derivada de la función de activación ReLU.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
         """
-
-        return x_grad * (self.forward_data > 0).astype(float)
+        if x is None:
+            x = self.forward_data
+        return x_grad * (x > 0).astype(float)
     
 class Softmax(Activation):
     def __init__(self) -> None:
@@ -102,15 +103,16 @@ class Sigmoid(Activation):
         self.forward_data = 1 / (1 + np.exp(-x))
         return self.forward_data
 
-    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+    def backward(self, x_grad: np.ndarray, x: np.ndarray=None) -> np.ndarray:
         """
         Realiza una propagación de la derivada de la función de activación Sigmoid.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
         """
-
-        return x_grad * (self.forward_data * (1 - self.forward_data))
+        if x is None:
+            x = self.forward_data
+        return x_grad * (x * (1 - x))
     
 class Tanh(Activation):
     def __init__(self) -> None:
@@ -130,12 +132,13 @@ class Tanh(Activation):
         self.forward_data = np.tanh(x)
         return self.forward_data
 
-    def backward(self, x_grad: np.ndarray) -> np.ndarray:
+    def backward(self, x_grad: np.ndarray, x: np.ndarray=None) -> np.ndarray:
         """
         Realiza una propagación de la derivada de la función de activación Tanh.
 
         :param x_grad: matriz de derivada de salida
         :return: matriz de derivada de entrada
         """
-
-        return x_grad * (1 - self.forward_data ** 2)
+        if x is None:
+            x = self.forward_data
+        return x_grad * (1 - x ** 2)
