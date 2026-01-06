@@ -954,7 +954,6 @@ class SimpleRNN(RecurrentLayer):
             outputs.append(self.short_term_memory)
 
 
-        # outputs = np.array([outputs])
         outputs = np.stack(outputs, axis=1) # (batch, timesteps, units)
         if self.return_sequences:
             # out = outputs.reshape(batch_size, self.output_shape[1], self.output_shape[2])
@@ -981,7 +980,6 @@ class SimpleRNN(RecurrentLayer):
         if self.return_sequences:
             dY_list = [x_grad[:, t, :] for t in range(timesteps)]
         else:
-            # sólo hay gradiente en el último paso
             dY_list = [np.zeros((batch_size, self.units)) for _ in range(timesteps)]
             dY_list[-1] = x_grad
 
@@ -990,11 +988,10 @@ class SimpleRNN(RecurrentLayer):
         self.bias_grads = np.zeros_like(self.bias)
 
         dh_next = np.zeros((batch_size, self.units))
-        self.data_grads = [None] * timesteps # Inicializar lista de gradientes de entrada
+        self.data_grads = [None] * timesteps
 
         for t in reversed(range(timesteps)):
-            dxt = dY_list[t]
-            dz = dxt + dh_next
+            dz = dY_list[t] + dh_next
             h_t = self.hist_states[t + 1]
 
             saved_fd = self.activation.forward_data
@@ -1002,15 +999,15 @@ class SimpleRNN(RecurrentLayer):
             d_pre = self.activation.backward(dz)
             self.activation.forward_data = saved_fd
             
-            self.weights_grads += self.forward_data[:, t, :].T @ d_pre#[:, t, :]
-            h_prev = self.hist_states[t]# if t > 0 else np.zeros_like(d_pre)
-            self.recurrent_weights_grads += h_prev.T @ d_pre#[:, t, :]
+            self.weights_grads += self.forward_data[:, t, :].T @ d_pre
+            h_prev = self.hist_states[t]
+            self.recurrent_weights_grads += h_prev.T @ d_pre
             self.bias_grads += np.sum(d_pre, axis=0)
 
             dh_next = d_pre @ self.recurrent_weights.T
-            self.data_grads[t] = d_pre @ self.weights.T # Gradientes de la entrada
+            self.data_grads[t] = d_pre @ self.weights.T
 
-        self.data_grads = np.stack(self.data_grads, axis=1) # Apilar gradientes de la entrada
+        self.data_grads = np.stack(self.data_grads, axis=1)
         
         return self.data_grads
         
@@ -1130,7 +1127,108 @@ class GRU(RecurrentLayer):
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
         """
-        return NotImplementedError
+        batch_size, timesteps, _ = self.forward_data.shape # (batches, timesteps, input_dim)
+        W_z, W_r, W_h = np.hsplit(self.weights, 3)
+        U_z, U_r, U_h = np.hsplit(self.recurrent_weights, 3)
+        b_in = self.bias[0]
+        b_rec = self.bias[1]
+
+        if self.return_sequences:
+            dY_list = [x_grad[:, t, :] for t in range(timesteps)]
+        else:
+            dY_list = [np.zeros((batch_size, self.units)) for _ in range(timesteps)]
+            dY_list[-1] = x_grad
+
+        self.weights_grads = np.zeros_like(self.weights)
+        self.recurrent_weights_grads = np.zeros_like(self.recurrent_weights)
+        self.bias_grads = np.zeros_like(self.bias)
+
+        dh_next = np.zeros((batch_size, self.units))
+        self.data_grads = [None] * timesteps
+        dW_z = np.zeros_like(W_z)
+        dW_r = np.zeros_like(W_r)
+        dW_h = np.zeros_like(W_h)
+        dU_z = np.zeros_like(U_z)
+        dU_r = np.zeros_like(U_r)
+        dU_h = np.zeros_like(U_h)
+        db_in = np.zeros_like(self.bias[0]) if self.reset_after else None
+        db_rec = np.zeros_like(self.bias[1]) if self.reset_after else None
+
+        for t in reversed(range(timesteps)):
+            dh = dY_list[t] + dh_next
+            
+            h_prev = self.hist_states[t]
+            z = self.z_list[t]
+            r = self.r_list[t]
+            h_tilde = self.h_tilde_list[t]
+            x_t = self.forward_data[:, t]
+
+            dh_tilde = dh * (1 - z)
+            dh_tilde_pre = self.activation.backward(dh_tilde, x=h_tilde)
+
+            if self.reset_after:
+                dr = dh_tilde_pre * (h_prev @ U_h + b_rec[2*self.units:])
+            else:
+                dr = (dh_tilde_pre @ U_h.T) * h_prev
+            dr_pre = self.recurrent_activation.backward(dr, x=r)
+
+            dz = dh * (h_prev - h_tilde)
+            dz_pre = self.recurrent_activation.backward(dz, x=z)
+
+            dW_h += x_t.T @ dh_tilde_pre
+            dW_r += x_t.T @ dr_pre
+            dW_z += x_t.T @ dz_pre
+
+            if self.reset_after:
+                dU_h += h_prev.T @ (dh_tilde_pre * r)
+            else:
+                dU_h += (r * h_prev).T @ dh_tilde_pre
+            dU_r += h_prev.T @ dr_pre
+            dU_z += h_prev.T @ dz_pre
+
+            if self.reset_after:
+                # bias entrada
+                db_in[2*self.units:] += np.sum(dh_tilde_pre, axis=0)
+                db_in[self.units:2*self.units] += np.sum(dr_pre, axis=0)
+                db_in[:self.units] += np.sum(dz_pre, axis=0)
+                # bias recurrente
+                db_rec[2*self.units:] += np.sum(dh_tilde_pre * r, axis=0)
+                db_rec[self.units:2*self.units] += np.sum(dr_pre, axis=0)
+                db_rec[:self.units] += np.sum(dz_pre, axis=0)
+            else:
+                self.bias_grads[2*self.units:] += np.sum(dh_tilde_pre, axis=0)
+                self.bias_grads[self.units:2*self.units] += np.sum(dr_pre, axis=0)
+                self.bias_grads[:self.units] += np.sum(dz_pre, axis=0)
+
+            dh_prev = dh * z 
+            if self.reset_after:
+                dh_prev += (
+                    dz_pre @ U_z.T +
+                    dr_pre @ U_r.T +
+                    (dh_tilde_pre * r) @ U_h.T
+                )
+            else:
+                dh_prev += (
+                    dz_pre @ U_z.T +
+                    dr_pre @ U_r.T +
+                    (dh_tilde_pre @ U_h.T) * r
+                )
+            dh_next = dh_prev
+
+            dx_t = (
+                dz_pre @ W_z.T +
+                dr_pre @ W_r.T +
+                dh_tilde_pre @ W_h.T
+            )
+            self.data_grads[t] = dx_t
+
+        self.data_grads = np.stack(self.data_grads, axis=1)
+        self.weights_grads = np.hstack([dW_z, dW_r, dW_h])
+        self.recurrent_weights_grads = np.hstack([dU_z, dU_r, dU_h])
+        if self.reset_after:
+            self.bias_grads = np.array([db_in, db_rec])
+        
+        return self.data_grads
 
 class LSTM(RecurrentLayer):
     def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, long_term_memory: np.array=None) -> None:
@@ -1233,7 +1331,17 @@ class LSTM(RecurrentLayer):
         :param x_grad: gradientes de la propagación hacia adelante
         :return: gradientes de la propagación hacia atrás
         """
-        return NotImplementedError
+        batch_size, timesteps, _ = self.forward_data.shape
+        if self.return_sequences:
+            dY_list = [x_grad[:, t, :] for t in range(timesteps)]
+        else:
+            # sólo hay gradiente en el último paso
+            dY_list = [np.zeros((batch_size, self.units)) for _ in range(timesteps)]
+            dY_list[-1] = x_grad
+
+        
+        for t in reversed(range(timesteps)):
+            pass
 
     def forget_gate(self, x: np.ndarray, w_forget: np.array, u_forget: np.array, bias: np.array):
         """
