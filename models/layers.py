@@ -1130,7 +1130,6 @@ class GRU(RecurrentLayer):
         batch_size, timesteps, _ = self.forward_data.shape # (batches, timesteps, input_dim)
         W_z, W_r, W_h = np.hsplit(self.weights, 3)
         U_z, U_r, U_h = np.hsplit(self.recurrent_weights, 3)
-        b_in = self.bias[0]
         b_rec = self.bias[1]
 
         if self.return_sequences:
@@ -1231,7 +1230,7 @@ class GRU(RecurrentLayer):
         return self.data_grads
 
 class LSTM(RecurrentLayer):
-    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', weight_initializer_recurrent: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, long_term_memory: np.array=None) -> None:
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, long_term_memory: np.array=None) -> None:
         """
         Constructor de una capa LSTM
 
@@ -1254,7 +1253,14 @@ class LSTM(RecurrentLayer):
         """
         self.unit_forget_bias = unit_forget_bias
         self.long_term_memory = long_term_memory
-        super().__init__(units=units, input_shape=input_shape, name=name, activation=activation, recurrent_activation=recurrent_activation, return_sequences=return_sequences, return_state=return_state, weights=weights, recurrent_weights=recurrent_weights, bias=bias, weight_initializer=weight_initializer, weight_initializer_recurrent=weight_initializer_recurrent, bias_initializer=bias_initializer, short_term_memory=short_term_memory)
+        self.f_list = []
+        self.i_list = []
+        self.o_list = []
+        self.c_tilde_list = []
+        self.c_list = []
+        self.hist_states = []
+        self.tanh_c_list = []
+        super().__init__(units=units, input_shape=input_shape, name=name, activation=activation, recurrent_activation=recurrent_activation, return_sequences=return_sequences, return_state=return_state, weights=weights, recurrent_weights=recurrent_weights, bias=bias, weight_initializer=weight_initializer, recurrent_weight_initializer=recurrent_weight_initializer, bias_initializer=bias_initializer, short_term_memory=short_term_memory)
 
 
     def compile(self, input_shape: tuple[int, ...]=None) -> None:
@@ -1268,16 +1274,14 @@ class LSTM(RecurrentLayer):
             self.output_shape = (None, input_shape[1], self.units)
         else:
             self.output_shape = (None, self.units)
-        # if self.long_term_memory is None:
-        #     self.long_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
-        # if self.short_term_memory is None:
-        #     self.short_term_memory = initialize_parameters(shape=(1, self.units), distribution='zeros')
         if self.weights is None:
-            self.weights = initialize_parameters(shape=(input_shape[-1], 4 * self.units), distribution=self.weights_initializer)
+            self.weights = initialize_parameters(shape=(self.input_shape[-1], 4 * self.units), distribution=self.weights_initializer)
         if self.recurrent_weights is None:
-            self.recurrent_weights = initialize_parameters(shape=(self.units,4 * self.units), distribution=self.weights_initializer_recurrent)
+            self.recurrent_weights = initialize_parameters(shape=(self.units, 4 * self.units), distribution=self.recurrent_weight_initializer)
         if self.bias is None:
             self.bias = initialize_parameters(shape=(4 * self.units), distribution=self.bias_initializer, is_bias=True)
+            if self.unit_forget_bias:
+                self.bias[self.units:2*self.units] += 1
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
@@ -1287,41 +1291,57 @@ class LSTM(RecurrentLayer):
         :return: matriz de salida de la capa
         """
         self.forward_data = x
-        batchets, timesteps, _ = x.shape # (batches, timesteps, input_dim)
+        batch_size, timesteps, _ = x.shape # (batches, timesteps, input_dim)
         W_i, W_f, W_c, W_o = np.hsplit(self.weights, 4)
         U_i, U_f, U_c, U_o = np.hsplit(self.recurrent_weights, 4)
         b_i, b_f, b_c, b_o = np.split(self.bias, 4)
 
+        self.long_term_memory = np.zeros((batch_size, self.units))
+        self.short_term_memory = np.zeros((batch_size, self.units))
+        self.hist_states = [self.short_term_memory.copy()]
+        self.c_list = [self.long_term_memory.copy()]
         outputs = []
-        short_memories = []
-        long_memories = []
-        for b in range(batchets):
-            sequence = x[b]
-            int_outputs = []
-            self.reset_states()
-            for t in range(timesteps):
-                xt = sequence[t]
-                self.forget_gate(xt, W_f, U_f, b_f)
-                self.input_gate(xt, W_i, U_i, b_i, W_c, U_c, b_c)
-                self.output_gate(xt, W_o, U_o, b_o)
-                int_outputs.append(self.short_term_memory.squeeze())
-            short_memories.append(self.short_term_memory.squeeze())
-            long_memories.append(self.long_term_memory.squeeze())
-            int_outputs = np.array(int_outputs)
-            outputs.append(int_outputs)
+
+        for t in range(timesteps):
+            xt = x[:, t]
+
+            # forget gate
+            f = xt @ W_f + self.short_term_memory @ U_f + b_f
+            forget_factor = self.recurrent_activation(f)
+            self.long_term_memory *= forget_factor
+
+            # input gate
+            i = xt @ W_i + self.short_term_memory @ U_i + b_i
+            c_tilde = xt @ W_c + self.short_term_memory @ U_c + b_c
+            input_factor = self.recurrent_activation(i)
+            candidate_factor = self.activation(c_tilde)
+            self.long_term_memory += input_factor * candidate_factor
+
+            # output gate
+            o = xt @ W_o + self.short_term_memory @ U_o + b_o
+            output_factor = self.recurrent_activation(o)
+            self.short_term_memory = output_factor * self.activation(self.long_term_memory)
+
+            self.f_list.append(forget_factor)
+            self.i_list.append(input_factor)
+            self.o_list.append(output_factor)
+            self.c_tilde_list.append(candidate_factor)
+            self.c_list.append(self.long_term_memory.copy())
+            self.hist_states.append(self.short_term_memory.copy())
+            self.tanh_c_list.append(self.activation(self.long_term_memory.copy()))
+
+            outputs.append(self.short_term_memory.copy())
         
-        short_memories = np.array(short_memories).reshape(batchets, self.units)
-        long_memories = np.array(long_memories).reshape(batchets, self.units)
-        outputs = np.array(outputs)
+        outputs = np.stack(outputs, axis=1) # (batches, timesteps, units)
         if self.return_sequences:
-            out = outputs.reshape(batchets, self.output_shape[1], self.output_shape[2])
+            out = outputs.reshape(batch_size, self.output_shape[1], self.output_shape[2])
             if self.return_state:
-                return out, short_memories, long_memories
+                return out, self.short_term_memory, self.long_term_memory
             return out
         else:
             out = outputs[:, -1, :]
             if self.return_state:
-                return out, short_memories, long_memories
+                return out, self.short_term_memory, self.long_term_memory
             return out
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
@@ -1332,50 +1352,107 @@ class LSTM(RecurrentLayer):
         :return: gradientes de la propagación hacia atrás
         """
         batch_size, timesteps, _ = self.forward_data.shape
+
+        W_i, W_f, W_c, W_o = np.hsplit(self.weights, 4)
+        U_i, U_f, U_c, U_o = np.hsplit(self.recurrent_weights, 4)
+        b_i, b_f, b_c, b_o = np.split(self.bias, 4)
+
         if self.return_sequences:
             dY_list = [x_grad[:, t, :] for t in range(timesteps)]
         else:
-            # sólo hay gradiente en el último paso
             dY_list = [np.zeros((batch_size, self.units)) for _ in range(timesteps)]
             dY_list[-1] = x_grad
-
-        
-        for t in reversed(range(timesteps)):
-            pass
-
-    def forget_gate(self, x: np.ndarray, w_forget: np.array, u_forget: np.array, bias: np.array):
-        """
-        Realiza los calculos de la forget gate.
-        
-        :param x: tensor de entrada
-        :param w_forget: pesos de la forget gate
-        :param u_forget: pesos recurrentes de la forget gate
-        :param bias: bias de la forget gate
-        """
-        bias = bias + 1 if self.unit_forget_bias else bias
-        z = (np.dot(x, w_forget) + np.dot(self.short_term_memory, u_forget)) + bias
-        forget_factor = self.recurrent_activation(z)
-        self.long_term_memory *= forget_factor
-
-    def input_gate(self, x: np.ndarray, w_input_1: np.array, u_input_1: np.array, bias_1: np.array, w_input_2: np.array, u_input_2: np.array, bias_2: np.array):
-        """
-        Realiza los calculos de la input gate.
-
-        :param x: tensor de entrada
-        """
-        z_input = np.dot(x, w_input_1) + np.dot(self.short_term_memory, u_input_1) + bias_1
-        z_candidate = np.dot(x, w_input_2) + np.dot(self.short_term_memory, u_input_2) + bias_2
-
-        input_factor = self.recurrent_activation(z_input)
-        candidate_factor = self.activation(z_candidate)
-        self.long_term_memory += input_factor * candidate_factor # Suma de memoria
     
-    def output_gate(self, x: np.ndarray, w_output: np.array, u_output: np.array, bias: np.array):
-        """
-        Realiza los calculos de la output gate.
+        self.weights_grads = np.zeros_like(self.weights)
+        self.recurrent_weights_grads = np.zeros_like(self.recurrent_weights)
+        self.bias_grads = np.zeros_like(self.bias)
+        self.data_grads = [None] * timesteps
 
-        :param x: tensor de entrada
-        """
-        z = np.dot(x, w_output) + np.dot(self.short_term_memory, u_output) + bias
-        output_factor = self.recurrent_activation(z)
-        self.short_term_memory = output_factor * self.activation(self.long_term_memory) # Suma de memoria
+        dW_i = np.zeros_like(W_i)
+        dW_f = np.zeros_like(W_f)
+        dW_c = np.zeros_like(W_c)
+        dW_o = np.zeros_like(W_o)
+        dU_i = np.zeros_like(U_i)
+        dU_f = np.zeros_like(U_f)
+        dU_c = np.zeros_like(U_c)
+        dU_o = np.zeros_like(U_o)
+        db_i = np.zeros_like(b_i)
+        db_f = np.zeros_like(b_f)
+        db_c = np.zeros_like(b_c)
+        db_o = np.zeros_like(b_o)
+
+        dh_next = np.zeros((batch_size, self.units))
+        dc_next = np.zeros((batch_size, self.units))
+
+        for t in reversed(range(timesteps)):
+            dh = dY_list[t] + dh_next
+
+            h_prev = self.hist_states[t]
+            c_prev = self.c_list[t]
+
+            i_t = self.i_list[t]
+            f_t = self.f_list[t]
+            o_t = self.o_list[t]
+            c_tilde = self.c_tilde_list[t]
+            tanh_c_curr = self.tanh_c_list[t]
+            x_t = self.forward_data[:, t]
+
+            dtanh_c = dh * o_t
+            dtanh_c_pre = self.activation.backward(dtanh_c, x=tanh_c_curr)
+
+            dc = dtanh_c_pre + dc_next
+
+            do = dh * tanh_c_curr
+            do_pre = self.recurrent_activation.backward(do, x=o_t)
+
+            dc_tilde = dc * i_t
+            dc_tilde_pre = self.activation.backward(dc_tilde, x=c_tilde)
+
+            di = dc * c_tilde
+            di_pre = self.recurrent_activation.backward(di, x=i_t)
+
+            df = dc * c_prev
+            df_pre = self.recurrent_activation.backward(df, x=f_t)
+
+            dW_i += x_t.T @ di_pre
+            dW_f += x_t.T @ df_pre # mal
+            dW_c += x_t.T @ dc_tilde_pre
+            dW_o += x_t.T @ do_pre
+
+            dU_i += h_prev.T @ di_pre
+            dU_f += h_prev.T @ df_pre
+            dU_c += h_prev.T @ dc_tilde_pre
+            dU_o += h_prev.T @ do_pre
+
+            db_i += np.sum(di_pre, axis=0)
+            db_f += np.sum(df_pre, axis=0) # mal
+            db_c += np.sum(dc_tilde_pre, axis=0)
+            db_o += np.sum(do_pre, axis=0)
+
+            dh_prev = (
+                di_pre @ U_i.T +
+                df_pre @ U_f.T +
+                dc_tilde_pre @ U_c.T +
+                do_pre @ U_o.T
+            )
+
+            dc_prev = dc * f_t
+
+            dh_next = dh_prev
+            dc_next = dc_prev
+
+            dx_t = (
+                di_pre @ W_i.T +
+                df_pre @ W_f.T +
+                dc_tilde_pre @ W_c.T +
+                do_pre @ W_o.T
+            )
+            self.data_grads[t] = dx_t
+
+        self.weights_grads = np.hstack([dW_i, dW_f, dW_c, dW_o])
+        self.recurrent_weights_grads = np.hstack([dU_i, dU_f, dU_c, dU_o])
+        self.bias_grads = np.hstack([db_i, db_f, db_c, db_o])
+
+        self.data_grads = np.stack(self.data_grads, axis=1)
+        return self.data_grads
+    
