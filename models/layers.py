@@ -882,14 +882,23 @@ class RecurrentLayer(Layer):
         """
         raise NotImplementedError
 
-    def reset_states(self) -> None:
+    def calculate_output(self, outputs: np.ndarray, states: tuple[np.ndarray, ...]) -> None:
         """
-        Reinicia los estados de la capa.
+        Retorna los resultados de la propagación hacia adelante segun los parámetros de la capa.
+
+        :param outputs: salidas de la capa
+        :param states: estados de la capa
+        :return: salidas de la capa
         """
-        batch_size = self.short_term_memory.shape[0] if self.short_term_memory is not None else 1
-        if self.short_term_memory is not None:
-            self.long_term_memory = initialize_parameters(shape=(batch_size, self.units), distribution='zeros') # Inicializa memoria de largo plazo
-        self.short_term_memory = initialize_parameters(shape=(batch_size, self.units), distribution='zeros') # Inicializa memoria de corto plazo
+        if self.return_sequences:
+            if self.return_state:
+                return outputs, *states
+            return outputs
+        else:
+            outputs = outputs[:, -1, :]
+            if self.return_state:
+                return outputs, *states
+            return outputs
 
 class SimpleRNN(RecurrentLayer):
     def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='simple_rnn', activation: Activation=Tanh(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None) -> None:
@@ -941,32 +950,20 @@ class SimpleRNN(RecurrentLayer):
         batch_size, timesteps, _ = x.shape # (batches, timesteps, input_dim)
 
         self.short_term_memory = np.zeros((batch_size, self.units))
-        self.hist_states = [self.short_term_memory]
+        self.hist_states = [self.short_term_memory.copy()]
         outputs = []
 
-        # self.reset_states()
         for t in range(timesteps):
             xt = x[:, t]
             z = xt @ self.weights + self.short_term_memory @ self.recurrent_weights + self.bias
 
             self.short_term_memory = self.activation(z)
             self.hist_states.append(self.short_term_memory.copy())
-            outputs.append(self.short_term_memory)
+            outputs.append(self.short_term_memory.copy())
 
 
-        outputs = np.stack(outputs, axis=1) # (batch, timesteps, units)
-        if self.return_sequences:
-            # out = outputs.reshape(batch_size, self.output_shape[1], self.output_shape[2])
-            out = outputs
-            if self.return_state:
-                return out, self.short_term_memory
-            return out
-        else:
-            # out = outputs[-1, -1, :]
-            out = outputs[:, -1, :]
-            if self.return_state:
-                return out, self.short_term_memory
-            return out
+        outputs = np.stack(outputs, axis=1)
+        return self.calculate_output(outputs, [self.short_term_memory])
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
@@ -1082,7 +1079,7 @@ class GRU(RecurrentLayer):
             b_z, b_r, b_h = np.split(self.bias, 3)
 
         self.short_term_memory = np.zeros((batch_size, self.units))
-        self.hist_states = [self.short_term_memory]
+        self.hist_states = [self.short_term_memory.copy()]
         outputs = []
 
         for t in range(timesteps):
@@ -1101,24 +1098,14 @@ class GRU(RecurrentLayer):
             
             self.short_term_memory = z * h_prev + (1 - z) * h_tilde
 
-            outputs.append(self.short_term_memory)
+            outputs.append(self.short_term_memory.copy())
             self.z_list.append(z)
             self.r_list.append(r)
             self.hist_states.append(self.short_term_memory.copy())
             self.h_tilde_list.append(h_tilde)
         
         outputs = np.stack(outputs, axis=1) # (batch, timesteps, units)
-        if self.return_sequences:
-            out = outputs.reshape(batch_size, self.output_shape[1], self.output_shape[2])
-            if self.return_state:
-                return out, self.short_term_memory
-            return out
-        else:
-            out = outputs[:, -1, :]
-            if self.return_state:
-                return out, self.short_term_memory
-            return out
-
+        return self.calculate_output(outputs, [self.short_term_memory])
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
@@ -1333,16 +1320,7 @@ class LSTM(RecurrentLayer):
             outputs.append(self.short_term_memory.copy())
         
         outputs = np.stack(outputs, axis=1) # (batches, timesteps, units)
-        if self.return_sequences:
-            out = outputs.reshape(batch_size, self.output_shape[1], self.output_shape[2])
-            if self.return_state:
-                return out, self.short_term_memory, self.long_term_memory
-            return out
-        else:
-            out = outputs[:, -1, :]
-            if self.return_state:
-                return out, self.short_term_memory, self.long_term_memory
-            return out
+        return self.calculate_output(outputs, [self.short_term_memory, self.long_term_memory])
 
     def backward(self, x_grad: np.ndarray) -> np.ndarray:
         """
