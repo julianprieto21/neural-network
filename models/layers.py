@@ -2,7 +2,7 @@ from __future__ import annotations
 import inspect
 import numpy as np
 from .activations import Activation, Sigmoid, Tanh
-from utils.helpers import initialize_parameters
+from utils.helpers import initialize_parameters, resolve_activation
 import math
 
 class Layer:
@@ -139,7 +139,7 @@ class Flatten(Layer):
         return self.data_grads
     
 class Dense(Layer):
-    def __init__(self, neurons: int, input_shape: tuple[int, ...]=None, name: str="dense", activation: Activation=None, weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros') -> None:
+    def __init__(self, neurons: int, input_shape: tuple[int, ...]=None, name: str="dense", activation: Activation|str=None, weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros') -> None:
         """
         Constructor de una capa densa.
 
@@ -152,7 +152,7 @@ class Dense(Layer):
         :param weight_initializer: inicializador de pesos. Por defecto 'glorot_uniform'
         :param bias_initializer: inicializador de bias. Por defecto 'zeros'
         """
-        self.activation = activation
+        self.activation = resolve_activation(activation)
         self.neurons = neurons
         self.weights = weights
         self.bias = bias
@@ -202,7 +202,7 @@ class Dense(Layer):
         return self.data_grads
 
 class Conv2D(Layer):
-    def __init__(self, filters: int, filter_size: int, input_shape: tuple[int, ...]=None, name: str='conv', activation: Activation=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros'):
+    def __init__(self, filters: int, filter_size: int, input_shape: tuple[int, ...]=None, name: str='conv', activation: Activation|str=None, stride: int=1, padding: str='valid', weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', bias_initializer: str='zeros'):
         """
         Constructor de una capa convolucional 2D.
 
@@ -218,7 +218,7 @@ class Conv2D(Layer):
         :param weight_initializer: inicializador de pesos. Por defecto 'glorot_uniform'
         :param bias_initializer: inicializador de bias. Por defecto 'zeros'
         """
-        self.activation = activation
+        self.activation = resolve_activation(activation)
         self.filters = filters
         self.filter_size = filter_size
         self.stride = stride
@@ -819,7 +819,7 @@ class AvgPool2D(Pool2D):
         return self.data_grads
 
 class RecurrentLayer(Layer):
-    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='recurrent_layer', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None) -> None:
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='recurrent_layer', activation: Activation|str=Tanh(), recurrent_activation: Activation|str=Sigmoid(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None) -> None:
         """
         Constructor de una capa RNN simple
 
@@ -838,8 +838,8 @@ class RecurrentLayer(Layer):
         :param bias_initializer: inicializador de bias
         :param short_term_memory: memoria de corto plazo
         """
-        self.activation = activation
-        self.recurrent_activation = recurrent_activation
+        self.activation = resolve_activation(activation)
+        self.recurrent_activation = resolve_activation(resolve_activation)
         self.units = units
         self.return_sequences = return_sequences
         self.return_state = return_state
@@ -901,7 +901,7 @@ class RecurrentLayer(Layer):
             return outputs
 
 class SimpleRNN(RecurrentLayer):
-    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='simple_rnn', activation: Activation=Tanh(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None) -> None:
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='simple_rnn', activation: Activation|str=Tanh(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None) -> None:
         """
         Constructor de una capa RNN simple
 
@@ -1009,7 +1009,7 @@ class SimpleRNN(RecurrentLayer):
         return self.data_grads
         
 class GRU(RecurrentLayer):
-    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='gru', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, reset_after: bool=True) -> None:
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='gru', activation: Activation|str=Tanh(), recurrent_activation: Activationstr=Sigmoid(), return_sequences: bool=False, return_state: bool=False, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, reset_after: bool=True) -> None:
         """
         Constructor de una capa GRU (Gated Recurrent Unit)
 
@@ -1217,7 +1217,7 @@ class GRU(RecurrentLayer):
         return self.data_grads
 
 class LSTM(RecurrentLayer):
-    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', activation: Activation=Tanh(), recurrent_activation: Activation=Sigmoid(), return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, long_term_memory: np.array=None) -> None:
+    def __init__(self, units: int, input_shape: tuple[any,...]=None, name: str='lstm', activation: Activation|str=Tanh(), recurrent_activation: Activation|str=Sigmoid(), return_sequences: bool=False, return_state: bool=False, unit_forget_bias: bool=True, weights: np.array=None, recurrent_weights: np.array=None, bias: np.array=None, weight_initializer: str='glorot_uniform', recurrent_weight_initializer: str='orthogonal', bias_initializer: str='zeros', short_term_memory: np.array=None, long_term_memory: np.array=None) -> None:
         """
         Constructor de una capa LSTM
 

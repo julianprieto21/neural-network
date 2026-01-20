@@ -142,3 +142,10 @@ class Tanh(Activation):
         if x is None:
             x = self.forward_data
         return x_grad * (1 - x ** 2)
+    
+ACTIVATIONS = {
+    "relu": ReLU,
+    "softmax": Softmax,
+    "sigmoid": Sigmoid,
+    "tanh": Tanh
+}

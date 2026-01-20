@@ -1,4 +1,5 @@
 import numpy as np
+from models.activations import ACTIVATIONS, Activation
 
 
 def initialize_parameters(shape: tuple[int, ...], distribution: str='normal', is_bias: bool=False) -> np.ndarray:
@@ -88,3 +89,20 @@ def one_hot_encoder(y: np.ndarray, num_classes: int=None) -> np.ndarray:
 
     y = np.eye(num_classes)[y]
     return y
+
+def resolve_activation(activation: str|Activation) -> Activation:
+    """
+    Resolve el nombre de una función de activación a una instancia de la misma.
+
+    :param activation: nombre de la función de activación o instancia de la misma
+    :return: instancia de la función de activación
+    """
+    if activation is None:
+        return None
+    if isinstance(activation, Activation):
+        return activation
+    if isinstance(activation, str):
+        if activation not in ACTIVATIONS:
+            raise ValueError(f'Función de activación "{activation}" no soportada.')
+        return ACTIVATIONS[activation]()
+    raise ValueError(f'Tipo de activación no soportado.')
