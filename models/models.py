@@ -85,7 +85,7 @@ class NeuralNetwork:
         for layer in reversed(self.layers):
             grad_output = layer.backward(grad_output)
         return self.get_grads()
-    
+
     def get_params(self) -> list[np.ndarray]:
         """
         Obtiene los parámetros del modelo.
@@ -126,50 +126,6 @@ class NeuralNetwork:
                 else:
                     layer.bias = self.params[i+1]
                     i += 2
-
-    def log(self, text: str) -> None:
-        """
-        Escribe un mensaje en la consola.
-
-        :param text: mensaje a escribir
-        """
-        if self.verbose:
-            print(text)
-
-    def save_parameters(self, filename: str='parameters') -> None:
-        """
-        Guarda los parámetros del modelo en un archivo formato h5.
-
-        :param filename: nombre del archivo
-        """
-        with h5py.File(f'parameters/{filename}.h5', 'w') as file:
-            for i, param in enumerate(self.params):
-                file.create_dataset(f'param_{i}', data=param)
-
-    def load_parameters(self, filename: str='parameters') -> None:
-        """
-        Carga los parámetros del modelo desde un archivo formato h5.
-
-        :param filename: nombre del archivo
-        """
-        with h5py.File(f'parameters/{filename}.h5', 'r') as file:
-            for i, param in enumerate(self.params):
-                param[...] = file[f'param_{i}'][...]
-                self.params[i] = param
-
-class ConvolutionalNeuralNetwork(NeuralNetwork):
-    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: Callable[[np.ndarray, np.ndarray], float], verbose: bool=False) -> None:
-        """
-        Constructor de un modelo de red neuronal.
-
-        :param input_shape: forma de la entrada
-        :param layers: capas de la red
-        :param optimizer: método de optimización
-        :param loss: función de pérdida
-        :param metrics: función de cálculo de métricas
-        :param verbose: indica si se debe mostrar mensajes de progreso y logs
-        """
-        super().__init__(input_shape, layers, optimizer, loss, metrics, verbose)
 
     def train(self, train_data: np.ndarray, train_labels: np.ndarray, validation_data: tuple[np.ndarray, np.ndarray]=(None, None), epochs: int=10, batch_size: int=32) -> dict[str, dict[str, list[float]]]:
         """
@@ -245,76 +201,32 @@ class ConvolutionalNeuralNetwork(NeuralNetwork):
 
         return loss, metric
 
-    def get_gradcam(self, data: np.ndarray, alpha: float=1.0) -> np.ndarray:
+    def log(self, text: str) -> None:
         """
-        EXPERIMENTAL
-        Obtiene el Grad-CAM de una imagen.
+        Escribe un mensaje en la consola.
 
-        :param data: matriz de entrada
-        :param alpha: factor de regularización
-        :return: matriz de gradiente CAM
+        :param text: mensaje a escribir
         """
-        x = data
-        if len(x.shape) == 3: x = np.expand_dims(x, axis=0)
-        channels, height, width = x.shape[1:]
-        pred = self(x)
-        num_classes = pred.shape[1]
-        class_idx = np.argmax(pred, axis=1)
+        if self.verbose:
+            print(text)
 
-        layers = self.layers
-        last_conv_layer = [layer for layer in layers if isinstance(layer, Conv2D)][-1]
-        if last_conv_layer is None:
-            raise ValueError("El modelo no contiene una capa Convolucional 2D.")
-        for layer in layers:
-            x = layer(x)
-            if layer == last_conv_layer: break
-        feature_maps = x
-
-        grad_output = np.zeros(num_classes)
-        grad_output[class_idx] = 1
-
-        dense_weights_1 = self.layers[-1].weights
-        dense_weights_2 = self.layers[-2].weights
-        grad_dense_2 = np.dot(grad_output, dense_weights_1.T)
-        grad_dense_1 = np.dot(grad_dense_2, dense_weights_2.T)
-
-
-        maxpool = [layer for layer in layers if issubclass(layer, Pool2D)][-1].copy()
-        print(maxpool.output_shape)
-        grad_pooled = grad_dense_1.reshape(maxpool.output_shape[1], 1, maxpool.output_shape[2], maxpool.output_shape[3])
-        feature_maps = feature_maps.transpose(1, 0, 2, 3)
-
-        maxpool.forward_data = feature_maps
-        grad_feature_maps = maxpool.backward(grad_pooled)
-        grad_feature_maps = np.mean(grad_feature_maps, axis=(1, 2, 3))
-
-        heatmap = feature_maps.transpose(1, 0, 2, 3)[0].T @ grad_feature_maps
-        heatmap = heatmap.T
-        heatmap = np.maximum(heatmap, 0) / np.max(heatmap)
-        heatmap = np.uint8(255 * heatmap)
-
-        jet = plt.get_cmap('viridis')
-        jet_colors = jet(np.arange(256))[:, :3]
-        jet_heatmap = jet_colors[heatmap]
-        jet_heatmap = Image.fromarray((jet_heatmap * 255).astype(np.uint8))
-        jet_heatmap = jet_heatmap.resize((height, width), resample=Image.NEAREST)
-        jet_heatmap = np.array(jet_heatmap, dtype=np.float32) / 255.0
-
-        img = data[0].reshape(height, width, channels) / 255
-        gradcam = jet_heatmap * alpha + img
-        return gradcam
-
-# EXPERIMENTAL
-class RecurrentNeuralNetwork(NeuralNetwork):
-    def __init__(self, input_shape: tuple[int, ...], layers: list[Layer], optimizer: Optimizer, loss: Loss, metrics: Callable[[np.ndarray, np.ndarray], float], verbose: bool=False) -> None:
+    def save_parameters(self, filename: str='parameters') -> None:
         """
-        Constructor de un modelo de red neuronal.
+        Guarda los parámetros del modelo en un archivo formato h5.
 
-        :param input_shape: forma de la entrada
-        :param layers: capas de la red
-        :param optimizer: método de optimización
-        :param loss: función de pérdida
-        :param metrics: función de cálculo de métricas
-        :param verbose: indica si se debe mostrar mensajes de progreso y logs
+        :param filename: nombre del archivo
         """
-        super().__init__(input_shape, layers, optimizer, loss, metrics, verbose)
+        with h5py.File(f'parameters/{filename}.h5', 'w') as file:
+            for i, param in enumerate(self.params):
+                file.create_dataset(f'param_{i}', data=param)
+
+    def load_parameters(self, filename: str='parameters') -> None:
+        """
+        Carga los parámetros del modelo desde un archivo formato h5.
+
+        :param filename: nombre del archivo
+        """
+        with h5py.File(f'{filename}', 'r') as file:
+            for i, param in enumerate(self.params):
+                param[...] = file[f'param_{i}'][...]
+                self.params[i] = param
